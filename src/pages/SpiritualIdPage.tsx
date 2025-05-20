@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home, Download, Share2, Printer, QrCode, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
-import { generateSpiritualId, validateSpiritualId, extractNameFromId } from "@/utils/spiritualIdUtils";
+import { generateSpiritualId, validateSpiritualId, extractNameFromId, spiritualIcons } from "@/utils/spiritualIdUtils";
 import { Label } from "@/components/ui/label";
+import SpiritualIconSelector from "@/components/SpiritualIconSelector";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const SpiritualIdPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,11 +20,13 @@ const SpiritualIdPage: React.FC = () => {
   const [showInputField, setShowInputField] = useState<boolean>(false);
   const [showNameInput, setShowNameInput] = useState<boolean>(false);
   const [inputValid, setInputValid] = useState<boolean | null>(null);
+  const [selectedIcon, setSelectedIcon] = useState<string>("om");
 
   useEffect(() => {
     // Check if user already has a spiritual ID stored
     const storedId = localStorage.getItem("spiritualID");
     const storedName = localStorage.getItem("spiritualName");
+    const storedIcon = localStorage.getItem("spiritualIcon");
     
     if (storedId) {
       setSpiritualId(storedId);
@@ -37,6 +41,10 @@ const SpiritualIdPage: React.FC = () => {
           setSpiritualName(extractedName);
           localStorage.setItem("spiritualName", extractedName);
         }
+      }
+      
+      if (storedIcon) {
+        setSelectedIcon(storedIcon);
       }
     } else {
       // For new users, show name input first
@@ -62,6 +70,10 @@ const SpiritualIdPage: React.FC = () => {
     setNameInput(e.target.value);
   };
 
+  const handleIconSelect = (iconId: string) => {
+    setSelectedIcon(iconId);
+  };
+
   const handleNameSubmit = () => {
     if (!nameInput.trim()) {
       toast.error("Please enter your name", {
@@ -76,6 +88,7 @@ const SpiritualIdPage: React.FC = () => {
     setSpiritualName(nameInput);
     localStorage.setItem("spiritualID", newId);
     localStorage.setItem("spiritualName", nameInput);
+    localStorage.setItem("spiritualIcon", selectedIcon);
     setShowNameInput(false);
     
     toast.success("Spiritual ID created successfully!", {
@@ -91,6 +104,7 @@ const SpiritualIdPage: React.FC = () => {
       // If valid, update the stored ID
       localStorage.setItem("spiritualID", inputId);
       setSpiritualId(inputId);
+      localStorage.setItem("spiritualIcon", selectedIcon);
       setShowInputField(false);
       
       // Try to extract name from ID
@@ -113,11 +127,13 @@ const SpiritualIdPage: React.FC = () => {
   const handleLogout = () => {
     localStorage.removeItem("spiritualID");
     localStorage.removeItem("spiritualName");
+    localStorage.removeItem("spiritualIcon");
     setShowNameInput(true);
     setSpiritualId("");
     setSpiritualName("");
     setInputId("");
     setIsNewUser(true);
+    setSelectedIcon("om");
     
     toast.info("Logged out successfully", {
       style: { background: '#262626', color: '#fcd34d' }
@@ -151,10 +167,14 @@ const SpiritualIdPage: React.FC = () => {
     });
   };
 
+  // Find the selected icon
+  const selectedIconObj = spiritualIcons.find(icon => icon.id === selectedIcon);
+  const iconSymbol = selectedIconObj ? selectedIconObj.symbol : "🕉️";
+
   // Name input screen for new users
   if (showNameInput) {
     return (
-      <div className="min-h-screen flex flex-col bg-black text-white">
+      <div className="min-h-screen flex flex-col bg-black text-white dark:bg-zinc-900">
         <header className="py-4 px-4 flex justify-between items-center">
           <Button 
             variant="ghost" 
@@ -165,14 +185,17 @@ const SpiritualIdPage: React.FC = () => {
             <ArrowLeft className="h-6 w-6" />
           </Button>
           <h1 className="text-xl font-bold text-amber-400">Spiritual ID</h1>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="text-amber-400 hover:bg-zinc-800"
-            onClick={() => navigate('/')}
-          >
-            <Home className="h-6 w-6" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="text-amber-400 hover:bg-zinc-800"
+              onClick={() => navigate('/')}
+            >
+              <Home className="h-6 w-6" />
+            </Button>
+          </div>
         </header>
         
         <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
@@ -192,13 +215,15 @@ const SpiritualIdPage: React.FC = () => {
                   </Label>
                   <Input 
                     id="name-input"
-                    className="bg-zinc-900 border border-zinc-600 text-white text-lg h-14 text-center"
+                    className="bg-zinc-900 border border-zinc-600 text-white text-lg h-14 text-center dark:bg-zinc-800"
                     placeholder="Your Name / आपका नाम"
                     value={nameInput}
                     onChange={handleNameInputChange}
                     onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
                   />
                 </div>
+                
+                <SpiritualIconSelector selectedIcon={selectedIcon} onSelectIcon={handleIconSelect} />
                 
                 <Button 
                   className="bg-amber-500 hover:bg-amber-600 text-black w-full h-12 text-lg"
@@ -215,7 +240,7 @@ const SpiritualIdPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-black text-white">
+    <div className="min-h-screen flex flex-col bg-black text-white dark:bg-zinc-900">
       <header className="py-4 px-4 flex justify-between items-center">
         <Button 
           variant="ghost" 
@@ -226,14 +251,17 @@ const SpiritualIdPage: React.FC = () => {
           <ArrowLeft className="h-6 w-6" />
         </Button>
         <h1 className="text-xl font-bold text-amber-400">Spiritual ID</h1>
-        <Button 
-          variant="ghost" 
-          size="icon"
-          className="text-amber-400 hover:bg-zinc-800"
-          onClick={() => navigate('/')}
-        >
-          <Home className="h-6 w-6" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-amber-400 hover:bg-zinc-800"
+            onClick={() => navigate('/')}
+          >
+            <Home className="h-6 w-6" />
+          </Button>
+        </div>
       </header>
       
       <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
@@ -241,7 +269,7 @@ const SpiritualIdPage: React.FC = () => {
           {isNewUser ? (
             <div className="bg-amber-500/20 border-2 border-amber-500 rounded-lg p-6 mb-8 animate-fade-in">
               <div className="text-center mb-6">
-                <div className="text-6xl mb-2">🕉️</div>
+                <div className="text-6xl mb-2">{iconSymbol}</div>
                 <h2 className="text-2xl font-bold text-amber-400 mb-3">
                   Welcome, {spiritualName ? `${spiritualName} Ji` : 'Spiritual Seeker'}
                 </h2>
@@ -251,13 +279,13 @@ const SpiritualIdPage: React.FC = () => {
               
               <div className="flex flex-col items-center">
                 <div className="bg-gradient-to-r from-amber-600 to-amber-700 p-1 rounded-lg mb-6">
-                  <div className="bg-black rounded-lg p-4 text-center">
+                  <div className="bg-black rounded-lg p-4 text-center dark:bg-zinc-900">
                     <p className="text-gray-400 text-xs mb-1">Your Spiritual ID / आपका आध्यात्मिक आईडी</p>
                     <p className="text-3xl md:text-4xl font-bold tracking-wider text-amber-400">{spiritualId}</p>
                   </div>
                 </div>
                 
-                <div className="bg-zinc-800/80 rounded-lg p-4 mb-6 text-sm">
+                <div className="bg-zinc-800/80 rounded-lg p-4 mb-6 text-sm dark:bg-zinc-800/50">
                   <p className="text-gray-200 mb-2">
                     Your spiritual number helps save your progress. Please write down this number: <span className="font-bold text-amber-400">{spiritualId}</span>. You will need it if you use a different phone or computer.
                   </p>
@@ -268,9 +296,9 @@ const SpiritualIdPage: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 mb-8">
+            <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 mb-8 dark:bg-zinc-800/50">
               <div className="text-center mb-6">
-                <div className="text-6xl mb-2">🕉️</div>
+                <div className="text-6xl mb-2">{iconSymbol}</div>
                 <h2 className="text-xl font-bold text-amber-400 mb-2">
                   {spiritualName ? `${spiritualName} Ji, आपका स्वागत है` : 'Your Spiritual Identity'}
                 </h2>
@@ -279,7 +307,7 @@ const SpiritualIdPage: React.FC = () => {
               
               <div className="flex flex-col items-center">
                 <div className="bg-gradient-to-r from-amber-600 to-amber-700 p-1 rounded-lg mb-6">
-                  <div className="bg-black rounded-lg p-4 text-center">
+                  <div className="bg-black rounded-lg p-4 text-center dark:bg-zinc-900">
                     <p className="text-gray-400 text-xs mb-1">Spiritual ID / आध्यात्मिक आईडी</p>
                     <p className="text-3xl md:text-4xl font-bold tracking-wider text-amber-400">{spiritualId}</p>
                   </div>
@@ -290,7 +318,7 @@ const SpiritualIdPage: React.FC = () => {
           
           {/* Input section for users to enter their ID on a new device */}
           {showInputField ? (
-            <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 mb-8">
+            <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 mb-8 dark:bg-zinc-800/50">
               <h3 className="text-lg font-medium text-amber-400 mb-2">Enter Your Spiritual ID</h3>
               <p className="text-gray-300 text-sm mb-4">अपना आध्यात्मिक आईडी दर्ज करें</p>
               
@@ -299,7 +327,7 @@ const SpiritualIdPage: React.FC = () => {
                   className={`bg-zinc-900 border ${
                     inputValid === null ? 'border-zinc-600' : 
                     inputValid ? 'border-green-500' : 'border-red-500'
-                  } text-amber-400 text-xl text-center tracking-wider h-16`}
+                  } text-amber-400 text-xl text-center tracking-wider h-16 dark:bg-zinc-800`}
                   placeholder="OMName123A"
                   value={inputId}
                   onChange={handleInputChange}
@@ -323,7 +351,9 @@ const SpiritualIdPage: React.FC = () => {
                 )}
               </div>
               
-              <div className="flex gap-2">
+              <SpiritualIconSelector selectedIcon={selectedIcon} onSelectIcon={handleIconSelect} />
+              
+              <div className="flex gap-2 mt-4">
                 <Button 
                   className="bg-amber-500 hover:bg-amber-600 text-black flex-1"
                   onClick={handleSubmitId}
@@ -341,7 +371,7 @@ const SpiritualIdPage: React.FC = () => {
             </div>
           ) : (
             <Button 
-              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 w-full mb-4"
+              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 w-full mb-4 dark:bg-zinc-800/70"
               onClick={() => setShowInputField(true)}
             >
               Enter Different ID / अलग आईडी दर्ज करें
@@ -350,7 +380,7 @@ const SpiritualIdPage: React.FC = () => {
           
           {/* Logout button */}
           <Button 
-            className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 w-full mb-8 flex items-center justify-center gap-2"
+            className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 w-full mb-8 flex items-center justify-center gap-2 dark:bg-zinc-800/70"
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
@@ -358,7 +388,7 @@ const SpiritualIdPage: React.FC = () => {
           </Button>
           
           {/* Sharing options */}
-          <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6">
+          <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 dark:bg-zinc-800/50">
             <h3 className="text-lg font-medium text-amber-400 mb-4 text-center">
               Share Your Spiritual ID
               <br />
@@ -368,7 +398,7 @@ const SpiritualIdPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <Button 
                 variant="outline" 
-                className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6"
+                className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6 dark:bg-zinc-800/70"
                 onClick={handleDownloadScreenshot}
               >
                 <Download className="h-6 w-6 mb-2" />
@@ -378,7 +408,7 @@ const SpiritualIdPage: React.FC = () => {
               
               <Button 
                 variant="outline" 
-                className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6"
+                className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6 dark:bg-zinc-800/70"
                 onClick={handleShareWhatsApp}
               >
                 <Share2 className="h-6 w-6 mb-2" />
@@ -388,7 +418,7 @@ const SpiritualIdPage: React.FC = () => {
               
               <Button 
                 variant="outline" 
-                className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6"
+                className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6 dark:bg-zinc-800/70"
                 onClick={handlePrint}
               >
                 <Printer className="h-6 w-6 mb-2" />
@@ -398,7 +428,7 @@ const SpiritualIdPage: React.FC = () => {
               
               <Button 
                 variant="outline" 
-                className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6"
+                className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6 dark:bg-zinc-800/70"
                 onClick={handleQrCode}
               >
                 <QrCode className="h-6 w-6 mb-2" />

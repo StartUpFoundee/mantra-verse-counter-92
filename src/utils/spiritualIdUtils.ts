@@ -82,3 +82,19 @@ export const extractNameFromId = (id: string): string | null => {
   
   return null;
 };
+
+/**
+ * Spiritual icons available for profile selection
+ */
+export const spiritualIcons = [
+  { id: "om", symbol: "🕉️", name: "Om" },
+  { id: "lotus", symbol: "🪷", name: "Lotus" },
+  { id: "namaste", symbol: "🙏", name: "Namaste" },
+  { id: "peace", symbol: "☮️", name: "Peace" },
+  { id: "star", symbol: "✨", name: "Star" },
+  { id: "moon", symbol: "🌙", name: "Moon" },
+  { id: "sun", symbol: "☀️", name: "Sun" },
+  { id: "bell", symbol: "🔔", name: "Bell" },
+  { id: "incense", symbol: "🧘", name: "Meditation" },
+  { id: "mandala", symbol: "🔯", name: "Mandala" },
+];

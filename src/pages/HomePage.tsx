@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mic, Hand, Infinity, Clock, UserRound } from "lucide-react";
 import { extractNameFromId } from "@/utils/spiritualIdUtils";
+import { spiritualIcons } from "@/utils/spiritualIdUtils";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -10,6 +12,7 @@ const HomePage: React.FC = () => {
   const [todayCount, setTodayCount] = useState<number>(0);
   const [spiritualId, setSpiritualId] = useState<string>("");
   const [spiritualName, setSpiritualName] = useState<string>("");
+  const [spiritualIcon, setSpiritualIcon] = useState<string>("om");
 
   useEffect(() => {
     // Load saved counts from localStorage on component mount
@@ -18,6 +21,7 @@ const HomePage: React.FC = () => {
     const savedLastDate = localStorage.getItem('lastCountDate');
     const savedId = localStorage.getItem('spiritualID');
     const savedName = localStorage.getItem('spiritualName');
+    const savedIcon = localStorage.getItem('spiritualIcon');
     
     if (savedLifetimeCount) {
       setLifetimeCount(parseInt(savedLifetimeCount, 10));
@@ -44,19 +48,30 @@ const HomePage: React.FC = () => {
           setSpiritualName(extractedName);
         }
       }
+      
+      if (savedIcon) {
+        setSpiritualIcon(savedIcon);
+      }
     }
   }, []);
 
+  // Find the selected icon
+  const selectedIconObj = spiritualIcons.find(icon => icon.id === spiritualIcon);
+  const iconSymbol = selectedIconObj ? selectedIconObj.symbol : "🕉️";
+
   return (
-    <div className="min-h-screen flex flex-col bg-black text-white">
-      <header className="py-6 text-center">
+    <div className="min-h-screen flex flex-col bg-black text-white dark:bg-zinc-900">
+      <header className="py-6 text-center relative">
+        <div className="absolute right-4 top-4">
+          <ThemeToggle />
+        </div>
         <h1 className="text-3xl font-bold text-amber-400">Mantra Counter</h1>
         <p className="text-gray-300 mt-2">Count your spiritual practice with ease</p>
       </header>
       
       <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12 gap-8">
         <div className="stats w-full max-w-md flex gap-4 mb-4">
-          <div className="stat flex-1 bg-zinc-800/80 rounded-lg p-4 border border-zinc-700 text-center">
+          <div className="stat flex-1 bg-zinc-800/80 rounded-lg p-4 border border-zinc-700 text-center dark:bg-zinc-800 dark:border-zinc-700">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Infinity className="w-5 h-5 text-amber-400" />
               <h2 className="text-gray-300 font-medium">Lifetime Chants</h2>
@@ -64,7 +79,7 @@ const HomePage: React.FC = () => {
             <p className="text-3xl font-bold text-amber-400">{lifetimeCount}</p>
           </div>
           
-          <div className="stat flex-1 bg-zinc-800/80 rounded-lg p-4 border border-zinc-700 text-center">
+          <div className="stat flex-1 bg-zinc-800/80 rounded-lg p-4 border border-zinc-700 text-center dark:bg-zinc-800 dark:border-zinc-700">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Clock className="w-5 h-5 text-amber-400" />
               <h2 className="text-gray-300 font-medium">Today</h2>
@@ -77,9 +92,15 @@ const HomePage: React.FC = () => {
           onClick={() => navigate('/spiritual-id')}
           className="w-full max-w-md bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 rounded-lg p-1 mb-4"
         >
-          <div className="bg-zinc-900 rounded-lg p-4 flex items-center justify-between">
+          <div className="bg-zinc-900 rounded-lg p-4 flex items-center justify-between dark:bg-zinc-800">
             <div className="flex items-center gap-3">
-              <UserRound size={24} className="text-amber-400" />
+              {spiritualId ? (
+                <div className="w-10 h-10 flex items-center justify-center text-2xl bg-amber-500/20 rounded-full">
+                  {iconSymbol}
+                </div>
+              ) : (
+                <UserRound size={24} className="text-amber-400" />
+              )}
               <div className="text-left">
                 {spiritualId ? (
                   <>
@@ -100,7 +121,7 @@ const HomePage: React.FC = () => {
           </div>
         </button>
         
-        <div className="w-full max-w-md bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 mb-8">
+        <div className="w-full max-w-md bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 mb-8 dark:bg-zinc-800/30">
           <p className="text-center text-gray-400 text-sm">Advertisement</p>
           <p className="text-center text-gray-500 text-xs">Place your ad here</p>
         </div>
@@ -110,7 +131,7 @@ const HomePage: React.FC = () => {
             onClick={() => navigate('/manual')}
             className="bg-gradient-to-br from-amber-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 rounded-xl p-1"
           >
-            <div className="bg-zinc-900 rounded-lg p-6 h-full">
+            <div className="bg-zinc-900 rounded-lg p-6 h-full dark:bg-zinc-800">
               <div className="flex justify-center mb-4">
                 <Hand size={64} className="text-amber-400" />
               </div>
@@ -124,7 +145,7 @@ const HomePage: React.FC = () => {
             onClick={() => navigate('/audio')}
             className="bg-gradient-to-br from-amber-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 rounded-xl p-1"
           >
-            <div className="bg-zinc-900 rounded-lg p-6 h-full">
+            <div className="bg-zinc-900 rounded-lg p-6 h-full dark:bg-zinc-800">
               <div className="flex justify-center mb-4">
                 <Mic size={64} className="text-amber-400" />
               </div>
