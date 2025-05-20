@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import AudioCountPage from "./pages/AudioCountPage";
 import ManualCountPage from "./pages/ManualCountPage";
+import SpiritualIdPage from "./pages/SpiritualIdPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
           <Route path="/" element={<HomePage />} />
           <Route path="/audio" element={<AudioCountPage />} />
           <Route path="/manual" element={<ManualCountPage />} />
+          <Route path="/spiritual-id" element={<SpiritualIdPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

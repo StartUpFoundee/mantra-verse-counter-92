@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mic, Hand, Infinity, Clock } from "lucide-react";
+import { Mic, Hand, Infinity, Clock, UserRound } from "lucide-react";
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,6 +53,22 @@ const HomePage: React.FC = () => {
             <p className="text-3xl font-bold text-amber-400">{todayCount}</p>
           </div>
         </div>
+        
+        <button
+          onClick={() => navigate('/spiritual-id')}
+          className="w-full max-w-md bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 rounded-lg p-1 mb-4"
+        >
+          <div className="bg-zinc-900 rounded-lg p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <UserRound size={24} className="text-amber-400" />
+              <div className="text-left">
+                <h3 className="text-amber-400 font-medium">My Spiritual ID</h3>
+                <p className="text-gray-400 text-xs">मेरा आध्यात्मिक आईडी</p>
+              </div>
+            </div>
+            <div className="text-amber-400 text-xl">→</div>
+          </div>
+        </button>
         
         <div className="w-full max-w-md bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 mb-8">
           <p className="text-center text-gray-400 text-sm">Advertisement</p>
