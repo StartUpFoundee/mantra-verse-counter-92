@@ -2,17 +2,22 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mic, Hand, Infinity, Clock, UserRound } from "lucide-react";
+import { extractNameFromId } from "@/utils/spiritualIdUtils";
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [lifetimeCount, setLifetimeCount] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
+  const [spiritualId, setSpiritualId] = useState<string>("");
+  const [spiritualName, setSpiritualName] = useState<string>("");
 
   useEffect(() => {
     // Load saved counts from localStorage on component mount
     const savedLifetimeCount = localStorage.getItem('lifetimeCount');
     const savedTodayCount = localStorage.getItem('todayCount');
     const savedLastDate = localStorage.getItem('lastCountDate');
+    const savedId = localStorage.getItem('spiritualID');
+    const savedName = localStorage.getItem('spiritualName');
     
     if (savedLifetimeCount) {
       setLifetimeCount(parseInt(savedLifetimeCount, 10));
@@ -25,6 +30,20 @@ const HomePage: React.FC = () => {
       // Reset today's count if it's a new day
       localStorage.setItem('todayCount', '0');
       localStorage.setItem('lastCountDate', today);
+    }
+
+    if (savedId) {
+      setSpiritualId(savedId);
+      
+      if (savedName) {
+        setSpiritualName(savedName);
+      } else {
+        // Try to extract name from ID
+        const extractedName = extractNameFromId(savedId);
+        if (extractedName) {
+          setSpiritualName(extractedName);
+        }
+      }
     }
   }, []);
 
@@ -62,8 +81,19 @@ const HomePage: React.FC = () => {
             <div className="flex items-center gap-3">
               <UserRound size={24} className="text-amber-400" />
               <div className="text-left">
-                <h3 className="text-amber-400 font-medium">My Spiritual ID</h3>
-                <p className="text-gray-400 text-xs">मेरा आध्यात्मिक आईडी</p>
+                {spiritualId ? (
+                  <>
+                    <h3 className="text-amber-400 font-medium">
+                      {spiritualName ? `${spiritualName} Ji` : 'My Spiritual ID'}
+                    </h3>
+                    <p className="text-gray-400 text-xs">{spiritualId}</p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-amber-400 font-medium">Create Spiritual ID</h3>
+                    <p className="text-gray-400 text-xs">आध्यात्मिक आईडी बनाएं</p>
+                  </>
+                )}
               </div>
             </div>
             <div className="text-amber-400 text-xl">→</div>

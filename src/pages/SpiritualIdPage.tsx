@@ -2,32 +2,46 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Home, Download, Share2, Printer, QrCode } from "lucide-react";
+import { ArrowLeft, Home, Download, Share2, Printer, QrCode, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
-import { generateSpiritualId, validateSpiritualId } from "@/utils/spiritualIdUtils";
+import { generateSpiritualId, validateSpiritualId, extractNameFromId } from "@/utils/spiritualIdUtils";
+import { Label } from "@/components/ui/label";
 
 const SpiritualIdPage: React.FC = () => {
   const navigate = useNavigate();
   const [spiritualId, setSpiritualId] = useState<string>("");
+  const [spiritualName, setSpiritualName] = useState<string>("");
+  const [nameInput, setNameInput] = useState<string>("");
   const [inputId, setInputId] = useState<string>("");
   const [isNewUser, setIsNewUser] = useState<boolean>(false);
   const [showInputField, setShowInputField] = useState<boolean>(false);
+  const [showNameInput, setShowNameInput] = useState<boolean>(false);
   const [inputValid, setInputValid] = useState<boolean | null>(null);
 
   useEffect(() => {
     // Check if user already has a spiritual ID stored
     const storedId = localStorage.getItem("spiritualID");
+    const storedName = localStorage.getItem("spiritualName");
     
     if (storedId) {
       setSpiritualId(storedId);
       setIsNewUser(false);
+      
+      if (storedName) {
+        setSpiritualName(storedName);
+      } else {
+        // Try to extract name from ID if not stored separately
+        const extractedName = extractNameFromId(storedId);
+        if (extractedName) {
+          setSpiritualName(extractedName);
+          localStorage.setItem("spiritualName", extractedName);
+        }
+      }
     } else {
-      // Generate a new spiritual ID for first time users
-      const newId = generateSpiritualId();
-      setSpiritualId(newId);
-      localStorage.setItem("spiritualID", newId);
+      // For new users, show name input first
       setIsNewUser(true);
+      setShowNameInput(true);
     }
   }, []);
 
@@ -44,6 +58,31 @@ const SpiritualIdPage: React.FC = () => {
     }
   };
 
+  const handleNameInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNameInput(e.target.value);
+  };
+
+  const handleNameSubmit = () => {
+    if (!nameInput.trim()) {
+      toast.error("Please enter your name", {
+        style: { background: '#262626', color: '#ea384c' }
+      });
+      return;
+    }
+
+    // Generate ID with name and save both
+    const newId = generateSpiritualId(nameInput);
+    setSpiritualId(newId);
+    setSpiritualName(nameInput);
+    localStorage.setItem("spiritualID", newId);
+    localStorage.setItem("spiritualName", nameInput);
+    setShowNameInput(false);
+    
+    toast.success("Spiritual ID created successfully!", {
+      style: { background: '#262626', color: '#fcd34d' }
+    });
+  };
+
   const handleSubmitId = () => {
     const isValid = validateSpiritualId(inputId);
     setInputValid(isValid);
@@ -53,6 +92,14 @@ const SpiritualIdPage: React.FC = () => {
       localStorage.setItem("spiritualID", inputId);
       setSpiritualId(inputId);
       setShowInputField(false);
+      
+      // Try to extract name from ID
+      const extractedName = extractNameFromId(inputId);
+      if (extractedName) {
+        setSpiritualName(extractedName);
+        localStorage.setItem("spiritualName", extractedName);
+      }
+      
       toast.success("Spiritual ID updated successfully!", {
         style: { background: '#262626', color: '#fcd34d' }
       });
@@ -61,6 +108,20 @@ const SpiritualIdPage: React.FC = () => {
         style: { background: '#262626', color: '#ea384c' }
       });
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("spiritualID");
+    localStorage.removeItem("spiritualName");
+    setShowNameInput(true);
+    setSpiritualId("");
+    setSpiritualName("");
+    setInputId("");
+    setIsNewUser(true);
+    
+    toast.info("Logged out successfully", {
+      style: { background: '#262626', color: '#fcd34d' }
+    });
   };
 
   const handleDownloadScreenshot = () => {
@@ -90,6 +151,69 @@ const SpiritualIdPage: React.FC = () => {
     });
   };
 
+  // Name input screen for new users
+  if (showNameInput) {
+    return (
+      <div className="min-h-screen flex flex-col bg-black text-white">
+        <header className="py-4 px-4 flex justify-between items-center">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-amber-400 hover:bg-zinc-800"
+            onClick={() => navigate('/')}
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-xl font-bold text-amber-400">Spiritual ID</h1>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-amber-400 hover:bg-zinc-800"
+            onClick={() => navigate('/')}
+          >
+            <Home className="h-6 w-6" />
+          </Button>
+        </header>
+        
+        <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
+          <div className="w-full max-w-md">
+            <div className="bg-amber-500/20 border-2 border-amber-500 rounded-lg p-6 mb-8 animate-fade-in">
+              <div className="text-center mb-6">
+                <div className="text-6xl mb-2">🕉️</div>
+                <h2 className="text-2xl font-bold text-amber-400 mb-3">Welcome, Spiritual Seeker</h2>
+                <p className="text-gray-300 mb-1">Please enter your name to start your spiritual journey</p>
+                <p className="text-amber-300 text-sm">कृपया अपनी आध्यात्मिक यात्रा शुरू करने के लिए अपना नाम लिखें</p>
+              </div>
+              
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-full">
+                  <Label htmlFor="name-input" className="text-amber-400 mb-1 block">
+                    Enter your name / अपना नाम लिखें
+                  </Label>
+                  <Input 
+                    id="name-input"
+                    className="bg-zinc-900 border border-zinc-600 text-white text-lg h-14 text-center"
+                    placeholder="Your Name / आपका नाम"
+                    value={nameInput}
+                    onChange={handleNameInputChange}
+                    onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
+                  />
+                </div>
+                
+                <Button 
+                  className="bg-amber-500 hover:bg-amber-600 text-black w-full h-12 text-lg"
+                  onClick={handleNameSubmit}
+                >
+                  Start My Journey / मेरी यात्रा शुरू करें
+                </Button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-black text-white">
       <header className="py-4 px-4 flex justify-between items-center">
@@ -118,7 +242,9 @@ const SpiritualIdPage: React.FC = () => {
             <div className="bg-amber-500/20 border-2 border-amber-500 rounded-lg p-6 mb-8 animate-fade-in">
               <div className="text-center mb-6">
                 <div className="text-6xl mb-2">🕉️</div>
-                <h2 className="text-2xl font-bold text-amber-400 mb-3">Welcome, Spiritual Seeker</h2>
+                <h2 className="text-2xl font-bold text-amber-400 mb-3">
+                  Welcome, {spiritualName ? `${spiritualName} Ji` : 'Spiritual Seeker'}
+                </h2>
                 <p className="text-gray-300 mb-1">Your unique spiritual number has been created</p>
                 <p className="text-amber-300 text-sm">आपका विशिष्ट आध्यात्मिक नंबर बना दिया गया है</p>
               </div>
@@ -145,7 +271,9 @@ const SpiritualIdPage: React.FC = () => {
             <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 mb-8">
               <div className="text-center mb-6">
                 <div className="text-6xl mb-2">🕉️</div>
-                <h2 className="text-xl font-bold text-amber-400 mb-2">Your Spiritual Identity</h2>
+                <h2 className="text-xl font-bold text-amber-400 mb-2">
+                  {spiritualName ? `${spiritualName} Ji, आपका स्वागत है` : 'Your Spiritual Identity'}
+                </h2>
                 <p className="text-gray-300 text-sm">आपकी आध्यात्मिक पहचान</p>
               </div>
               
@@ -172,17 +300,17 @@ const SpiritualIdPage: React.FC = () => {
                     inputValid === null ? 'border-zinc-600' : 
                     inputValid ? 'border-green-500' : 'border-red-500'
                   } text-amber-400 text-xl text-center tracking-wider h-16`}
-                  placeholder="OM1234AB"
+                  placeholder="OMName123A"
                   value={inputId}
                   onChange={handleInputChange}
-                  maxLength={8}
+                  maxLength={15}
                 />
                 
                 {inputValid === false && (
                   <p className="text-red-500 text-sm mt-2">
-                    Invalid format. IDs usually start with OM and have 6-8 characters.
+                    Invalid format. IDs usually start with OM and have your name followed by numbers.
                     <br />
-                    अमान्य प्रारूप। आईडी आमतौर पर OM से शुरू होती है और इसमें 6-8 अक्षर होते हैं।
+                    अमान्य प्रारूप। आईडी आमतौर पर OM से शुरू होती है और इसके बाद आपका नाम और अंक होते हैं।
                   </p>
                 )}
                 
@@ -213,12 +341,21 @@ const SpiritualIdPage: React.FC = () => {
             </div>
           ) : (
             <Button 
-              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 w-full mb-8"
+              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 w-full mb-4"
               onClick={() => setShowInputField(true)}
             >
               Enter Different ID / अलग आईडी दर्ज करें
             </Button>
           )}
+          
+          {/* Logout button */}
+          <Button 
+            className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 w-full mb-8 flex items-center justify-center gap-2"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Logout / लॉग आउट करें</span>
+          </Button>
           
           {/* Sharing options */}
           <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6">
