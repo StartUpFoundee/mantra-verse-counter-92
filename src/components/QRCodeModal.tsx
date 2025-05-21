@@ -32,8 +32,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({ open, onOpenChange, spiritual
       }
     } else {
       toast("Sharing Not Supported", {
-        description: "Your browser doesn't support sharing",
-        variant: "destructive"
+        description: "Your browser doesn't support sharing"
       });
     }
   };
@@ -64,8 +63,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({ open, onOpenChange, spiritual
         });
       } else {
         toast("Download Failed", {
-          description: "Unable to download the QR code",
-          variant: "destructive"
+          description: "Unable to download the QR code"
         });
       }
       return;
@@ -84,8 +82,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({ open, onOpenChange, spiritual
       });
     } catch (error) {
       toast("Download Failed", {
-        description: "Unable to download the QR code",
-        variant: "destructive"
+        description: "Unable to download the QR code"
       });
     }
   };

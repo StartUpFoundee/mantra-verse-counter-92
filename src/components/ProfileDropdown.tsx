@@ -2,7 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getUserData, logoutUser } from "@/utils/spiritualIdUtils";
-import { UserRound, HelpCircle, Download, LogOut, QrCode } from "lucide-react";
+import { UserRound, HelpCircle, Download, LogOut } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 interface ProfileDropdownProps {
@@ -53,19 +53,6 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
     onClose();
   };
 
-  const handleShowQRCode = () => {
-    if (!userData) return;
-    
-    // Navigate to the spiritual ID page which has the QR code feature
-    navigate('/spiritual-id');
-    onClose();
-  };
-
-  const handleViewGuide = () => {
-    navigate('/identity-guide');
-    onClose();
-  };
-
   return (
     <div 
       ref={dropdownRef}
@@ -88,16 +75,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
             }}
           >
             <UserRound size={16} className="mr-2 text-gray-400" />
-            View Spiritual ID
-          </button>
-        </li>
-        <li>
-          <button 
-            className="flex items-center w-full px-4 py-2 text-sm text-gray-300 hover:bg-zinc-700"
-            onClick={handleViewGuide}
-          >
-            <HelpCircle size={16} className="mr-2 text-gray-400" />
-            Identity Guide
+            View ID: {userData?.id}
           </button>
         </li>
         <li>
@@ -107,15 +85,6 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
           >
             <Download size={16} className="mr-2 text-gray-400" />
             Save Identity
-          </button>
-        </li>
-        <li>
-          <button 
-            className="flex items-center w-full px-4 py-2 text-sm text-gray-300 hover:bg-zinc-700"
-            onClick={handleShowQRCode}
-          >
-            <QrCode size={16} className="mr-2 text-gray-400" />
-            QR Code
           </button>
         </li>
         <li className="border-t border-zinc-700 mt-1">
