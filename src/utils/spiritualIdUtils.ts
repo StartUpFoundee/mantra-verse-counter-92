@@ -106,3 +106,36 @@ export const saveUserData = (userData: any) => {
 export const logoutUser = () => {
   localStorage.removeItem('chantTrackerUserData');
 };
+
+/**
+ * Generate a spiritual ID based on name
+ * This is for compatibility with the SpiritualIdPage
+ */
+export const generateSpiritualId = (name: string): string => {
+  const timestamp = new Date().getTime().toString();
+  const uniquePart = timestamp.slice(-4);
+  return `OM${name}${uniquePart}`;
+};
+
+/**
+ * Validate a spiritual ID format
+ * This is for compatibility with the SpiritualIdPage
+ */
+export const validateSpiritualId = (id: string): boolean => {
+  // Simple validation - check if ID starts with OM and has at least 5 characters
+  return id.startsWith('OM') && id.length >= 5;
+};
+
+/**
+ * Extract name from a spiritual ID
+ * This is for compatibility with the SpiritualIdPage
+ */
+export const extractNameFromId = (id: string): string | null => {
+  if (!id.startsWith('OM')) return null;
+  
+  // Extract the middle part (name) by removing "OM" prefix and last 4 characters
+  const nameWithoutPrefix = id.substring(2);
+  if (nameWithoutPrefix.length <= 4) return null;
+  
+  return nameWithoutPrefix.substring(0, nameWithoutPrefix.length - 4);
+};

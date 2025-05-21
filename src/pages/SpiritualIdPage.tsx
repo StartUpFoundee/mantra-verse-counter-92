@@ -5,7 +5,12 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Home, Download, Share2, Printer, QrCode, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
-import { generateSpiritualId, validateSpiritualId, extractNameFromId, spiritualIcons } from "@/utils/spiritualIdUtils";
+import { 
+  generateSpiritualId, 
+  validateSpiritualId, 
+  extractNameFromId, 
+  spiritualIcons 
+} from "@/utils/spiritualIdUtils";
 import { Label } from "@/components/ui/label";
 import SpiritualIconSelector from "@/components/SpiritualIconSelector";
 import ThemeToggle from "@/components/ThemeToggle";
