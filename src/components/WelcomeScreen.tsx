@@ -1,20 +1,44 @@
 
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { generateUserID, spiritualIcons, saveUserData } from "@/utils/spiritualIdUtils";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { 
+  generateUserID, 
+  spiritualIcons, 
+  saveUserData, 
+  validateUserID, 
+  correctUserID,
+  findIDsByDOB,
+  extractDOBFromID
+} from "@/utils/spiritualIdUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import SpiritualIconSelector from "./SpiritualIconSelector";
 import { toast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const WelcomeScreen: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
   const [selectedIcon, setSelectedIcon] = useState("om");
-  const [showLogin, setShowLogin] = useState(false);
+  const [activeTab, setActiveTab] = useState<"create" | "login" | "recover">("create");
   const [existingId, setExistingId] = useState("");
+  const [recoveryDob, setRecoveryDob] = useState("");
+  const [recoveredIds, setRecoveredIds] = useState<string[]>([]);
+  const [isRecoverySearched, setIsRecoverySearched] = useState(false);
+
+  useEffect(() => {
+    // Check URL for ID parameter (for QR code logins)
+    const params = new URLSearchParams(location.search);
+    const idParam = params.get('id');
+    
+    if (idParam) {
+      setExistingId(idParam);
+      setActiveTab("login");
+    }
+  }, [location]);
 
   const handleCreateIdentity = () => {
     if (!name || !dob || !selectedIcon) {
@@ -67,18 +91,67 @@ const WelcomeScreen: React.FC = () => {
       return;
     }
 
-    // In a real app, we'd validate this ID exists
-    // For this demo, we'll just create a simple user object
+    // Correct common mistakes in ID format
+    const correctedId = correctUserID(existingId);
+    
+    // Validate ID format
+    if (!validateUserID(correctedId)) {
+      toast({
+        title: "Invalid ID Format",
+        description: "Please enter a valid spiritual ID (format: DDMMYYYY_XXXX)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Create a basic user object from the ID
+    const dob = extractDOBFromID(correctedId);
+    const iconObj = spiritualIcons.find(icon => icon.id === selectedIcon);
+    
     const userData = {
-      id: existingId,
-      name: "Returning User",
-      symbol: "om",
-      symbolImage: "🕉️",
+      id: correctedId,
+      name: name || "Spiritual Seeker", // Use entered name or default
+      dob: dob,
+      symbol: selectedIcon,
+      symbolImage: iconObj?.symbol || "🕉️",
       lastLogin: new Date().toISOString(),
     };
 
     saveUserData(userData);
     navigate("/");
+  };
+
+  const handleRecoverySearch = () => {
+    if (!recoveryDob) {
+      toast({
+        title: "Date Required",
+        description: "Please enter your date of birth",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Search for IDs matching this DOB
+    const foundIds = findIDsByDOB(recoveryDob);
+    setRecoveredIds(foundIds);
+    setIsRecoverySearched(true);
+    
+    if (foundIds.length === 0) {
+      toast({
+        title: "No IDs Found",
+        description: "No spiritual IDs found matching this date of birth",
+      });
+    }
+  };
+
+  const handleSelectRecoveredId = (id: string) => {
+    setExistingId(id);
+    setActiveTab("login");
+    
+    toast({
+      title: "ID Selected",
+      description: "You can now log in with this spiritual ID",
+    });
   };
 
   const handleContinueAsGuest = () => {
@@ -91,9 +164,19 @@ const WelcomeScreen: React.FC = () => {
         Welcome to Mantra Counter
       </h1>
       
-      {!showLogin ? (
-        <>
-          <div className="space-y-4 mb-6">
+      <Tabs 
+        value={activeTab} 
+        onValueChange={(value) => setActiveTab(value as "create" | "login" | "recover")}
+        className="w-full"
+      >
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="create">Create Identity</TabsTrigger>
+          <TabsTrigger value="login">Login</TabsTrigger>
+          <TabsTrigger value="recover">Recover ID</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="create" className="mt-6 space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-amber-400">
                 Your Name / आपका नाम
@@ -126,26 +209,12 @@ const WelcomeScreen: React.FC = () => {
             />
           </div>
           
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 pt-4">
             <Button
               onClick={handleCreateIdentity}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
               Create Your Spiritual Identity
-            </Button>
-            
-            <div className="flex items-center gap-2 my-2">
-              <div className="h-px flex-1 bg-zinc-700"></div>
-              <span className="text-zinc-500 text-sm">or</span>
-              <div className="h-px flex-1 bg-zinc-700"></div>
-            </div>
-            
-            <Button
-              variant="outline"
-              onClick={() => setShowLogin(true)}
-              className="border-zinc-700 text-gray-300 hover:bg-zinc-700"
-            >
-              Login with Existing ID
             </Button>
             
             <Button
@@ -156,10 +225,10 @@ const WelcomeScreen: React.FC = () => {
               Continue as Guest
             </Button>
           </div>
-        </>
-      ) : (
-        <>
-          <div className="space-y-4 mb-6">
+        </TabsContent>
+        
+        <TabsContent value="login" className="mt-6 space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="existingId" className="text-amber-400">
                 Your Spiritual ID / आपका आध्यात्मिक आईडी
@@ -175,9 +244,27 @@ const WelcomeScreen: React.FC = () => {
                 Format: DDMMYYYY_XXXX (based on your date of birth)
               </p>
             </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="name-login" className="text-amber-400">
+                Your Name (Optional) / आपका नाम
+              </Label>
+              <Input
+                id="name-login"
+                placeholder="Enter your name (optional)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="bg-zinc-900 border-zinc-700"
+              />
+            </div>
+            
+            <SpiritualIconSelector 
+              selectedIcon={selectedIcon}
+              onSelectIcon={setSelectedIcon}
+            />
           </div>
           
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 pt-4">
             <Button
               onClick={handleExistingIdLogin}
               className="bg-amber-600 hover:bg-amber-700 text-white"
@@ -185,15 +272,76 @@ const WelcomeScreen: React.FC = () => {
               Continue Your Journey
             </Button>
             
-            <div className="flex items-center gap-2 my-2">
-              <div className="h-px flex-1 bg-zinc-700"></div>
-              <span className="text-zinc-500 text-sm">or</span>
-              <div className="h-px flex-1 bg-zinc-700"></div>
+            <Button
+              variant="ghost"
+              onClick={handleContinueAsGuest}
+              className="text-gray-400 hover:text-gray-300 hover:bg-zinc-800"
+            >
+              Continue as Guest
+            </Button>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="recover" className="mt-6 space-y-4">
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="recovery-dob" className="text-amber-400 mb-2 block">
+                Enter Your Date of Birth / अपनी जन्म तिथि दर्ज करें
+              </Label>
+              <Input
+                id="recovery-dob"
+                type="date"
+                value={recoveryDob}
+                onChange={(e) => setRecoveryDob(e.target.value)}
+                className="bg-zinc-900 border-zinc-700"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                We'll find IDs associated with this birth date
+              </p>
             </div>
             
             <Button
+              onClick={handleRecoverySearch}
+              className="w-full bg-zinc-700 hover:bg-zinc-600 text-white"
+            >
+              Search for My ID
+            </Button>
+            
+            {isRecoverySearched && (
+              <div className="mt-4">
+                <Label className="text-amber-400 mb-2 block">
+                  {recoveredIds.length > 0 ? "Found IDs" : "No IDs Found"}
+                </Label>
+                
+                {recoveredIds.length > 0 ? (
+                  <div className="space-y-2">
+                    {recoveredIds.map((id) => (
+                      <div 
+                        key={id} 
+                        className="p-3 bg-zinc-700 border border-zinc-600 rounded-md cursor-pointer hover:bg-zinc-600"
+                        onClick={() => handleSelectRecoveredId(id)}
+                      >
+                        <p className="font-medium text-amber-400">{id}</p>
+                        <p className="text-xs text-gray-300 mt-1">Click to select this ID</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-zinc-700 border border-zinc-600 rounded-md">
+                    <p className="text-gray-300">No spiritual IDs found matching this date of birth.</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      You may need to create a new identity or try another date.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <div className="flex flex-col gap-3 pt-4 mt-4">
+            <Button
               variant="outline"
-              onClick={() => setShowLogin(false)}
+              onClick={() => setActiveTab("create")}
               className="border-zinc-700 text-gray-300 hover:bg-zinc-700"
             >
               Create New Identity
@@ -207,8 +355,20 @@ const WelcomeScreen: React.FC = () => {
               Continue as Guest
             </Button>
           </div>
-        </>
-      )}
+        </TabsContent>
+      </Tabs>
+      
+      <div className="mt-6 pt-4 border-t border-zinc-700">
+        <p className="text-xs text-center text-gray-400">
+          Your identity is stored locally on your device. <br/>
+          <button 
+            className="text-amber-400 hover:underline"
+            onClick={() => navigate('/identity-guide')}
+          >
+            Learn more about identity management
+          </button>
+        </p>
+      </div>
     </div>
   );
 };

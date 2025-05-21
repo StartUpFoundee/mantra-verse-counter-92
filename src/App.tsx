@@ -8,6 +8,7 @@ import HomePage from "./pages/HomePage";
 import AudioCountPage from "./pages/AudioCountPage";
 import ManualCountPage from "./pages/ManualCountPage";
 import SpiritualIdPage from "./pages/SpiritualIdPage";
+import IdentityGuidePage from "./pages/IdentityGuidePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/audio" element={<AudioCountPage />} />
           <Route path="/manual" element={<ManualCountPage />} />
           <Route path="/spiritual-id" element={<SpiritualIdPage />} />
+          <Route path="/identity-guide" element={<IdentityGuidePage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

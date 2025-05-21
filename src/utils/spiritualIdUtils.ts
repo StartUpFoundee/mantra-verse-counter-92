@@ -139,3 +139,62 @@ export const extractNameFromId = (id: string): string | null => {
   
   return nameWithoutPrefix.substring(0, nameWithoutPrefix.length - 4);
 };
+
+/**
+ * Recover IDs that match a specific date of birth
+ * Searches local storage for potential matching IDs
+ */
+export const findIDsByDOB = (dob: string): string[] => {
+  const dobDate = new Date(dob);
+  const day = String(dobDate.getDate()).padStart(2, '0');
+  const month = String(dobDate.getMonth() + 1).padStart(2, '0');
+  const year = dobDate.getFullYear();
+  
+  // Format DOB part as DDMMYYYY
+  const dobPart = `${day}${month}${year}`;
+  
+  // Try to find IDs that start with this DOB part
+  const matchingIDs: string[] = [];
+  
+  // Check current user data
+  const userData = getUserData();
+  if (userData && userData.id && userData.id.startsWith(dobPart)) {
+    matchingIDs.push(userData.id);
+  }
+  
+  // In a real app, we might search through other stored IDs or a backend
+  // For now, we just return the current ID if it matches
+  
+  return matchingIDs;
+};
+
+/**
+ * Create a QR code data URL based on user ID
+ * Returns a URL that can be used to log in
+ */
+export const generateIdQRData = (id: string): string => {
+  const baseUrl = window.location.origin;
+  const loginUrl = `${baseUrl}/?id=${encodeURIComponent(id)}`;
+  return loginUrl;
+};
+
+/**
+ * Import user data from a file
+ */
+export const importUserData = (jsonData: string): boolean => {
+  try {
+    const userData = JSON.parse(jsonData);
+    
+    // Basic validation to ensure it's valid user data
+    if (!userData.id || !userData.name) {
+      return false;
+    }
+    
+    // Save to localStorage
+    saveUserData(userData);
+    return true;
+  } catch (e) {
+    console.error("Failed to import user data:", e);
+    return false;
+  }
+};
