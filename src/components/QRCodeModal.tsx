@@ -24,27 +24,24 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({ open, onOpenChange, spiritual
           text: `Scan this QR code to access my spiritual identity: ${spiritualId}`,
           url: qrData,
         });
-        toast({
-          title: "Shared Successfully",
-          description: "Your QR code has been shared",
+        toast("Shared Successfully", {
+          description: "Your QR code has been shared"
         });
       } catch (error) {
         console.error("Error sharing:", error);
       }
     } else {
-      toast({
-        title: "Sharing Not Supported",
+      toast("Sharing Not Supported", {
         description: "Your browser doesn't support sharing",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
   
   const handleCopyLink = () => {
     navigator.clipboard.writeText(qrData);
-    toast({
-      title: "Link Copied",
-      description: "QR code link copied to clipboard",
+    toast("Link Copied", {
+      description: "QR code link copied to clipboard"
     });
   };
   
@@ -62,15 +59,13 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({ open, onOpenChange, spiritual
         link.click();
         document.body.removeChild(link);
         
-        toast({
-          title: "QR Code Downloaded",
-          description: "Your QR code has been downloaded",
+        toast("QR Code Downloaded", {
+          description: "Your QR code has been downloaded"
         });
       } else {
-        toast({
-          title: "Download Failed",
+        toast("Download Failed", {
           description: "Unable to download the QR code",
-          variant: "destructive",
+          variant: "destructive"
         });
       }
       return;
@@ -84,15 +79,13 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({ open, onOpenChange, spiritual
       link.click();
       document.body.removeChild(link);
       
-      toast({
-        title: "QR Code Downloaded",
-        description: "Your QR code has been downloaded",
+      toast("QR Code Downloaded", {
+        description: "Your QR code has been downloaded"
       });
     } catch (error) {
-      toast({
-        title: "Download Failed", 
+      toast("Download Failed", {
         description: "Unable to download the QR code",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };

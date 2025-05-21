@@ -46,10 +46,8 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
     
-    toast({
-      title: "Identity Exported",
-      description: "Your spiritual identity data has been downloaded.",
-      variant: "default"
+    toast("Identity Exported", {
+      description: "Your spiritual identity data has been downloaded."
     });
     
     onClose();
