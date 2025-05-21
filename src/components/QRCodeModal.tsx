@@ -79,7 +79,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({ open, onOpenChange, spiritual
       
       toast("QR Code Downloaded", {
         description: "Your QR code has been downloaded"
-      });
+        });
     } catch (error) {
       toast("Download Failed", {
         description: "Unable to download the QR code"

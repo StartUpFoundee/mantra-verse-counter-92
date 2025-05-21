@@ -6,11 +6,13 @@ import { ArrowLeft, Home, Download, Share2, Printer, QrCode, LogOut } from "luci
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import { 
-  generateSpiritualId, 
-  validateSpiritualId, 
-  extractNameFromId, 
+  generateUserID, 
+  validateUserID, 
+  extractDOBFromID, 
   spiritualIcons,
-  getUserData
+  getUserData,
+  saveUserData,
+  logoutUser
 } from "@/utils/spiritualIdUtils";
 import { Label } from "@/components/ui/label";
 import SpiritualIconSelector from "@/components/SpiritualIconSelector";
@@ -21,6 +23,7 @@ const SpiritualIdPage: React.FC = () => {
   const [spiritualId, setSpiritualId] = useState<string>("");
   const [spiritualName, setSpiritualName] = useState<string>("");
   const [nameInput, setNameInput] = useState<string>("");
+  const [dobInput, setDobInput] = useState<string>("");
   const [inputId, setInputId] = useState<string>("");
   const [isNewUser, setIsNewUser] = useState<boolean>(false);
   const [showInputField, setShowInputField] = useState<boolean>(false);
@@ -49,12 +52,12 @@ const SpiritualIdPage: React.FC = () => {
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase();
+    const value = e.target.value;
     setInputId(value);
     
     if (value.length >= 6) {
       // Validate as user types if the input is long enough
-      const isValid = validateSpiritualId(value);
+      const isValid = validateUserID(value);
       setInputValid(isValid);
     } else {
       setInputValid(null);
@@ -64,6 +67,10 @@ const SpiritualIdPage: React.FC = () => {
   const handleNameInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNameInput(e.target.value);
   };
+  
+  const handleDobInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDobInput(e.target.value);
+  };
 
   const handleIconSelect = (iconId: string) => {
     setSelectedIcon(iconId);
@@ -72,31 +79,36 @@ const SpiritualIdPage: React.FC = () => {
   const handleNameSubmit = () => {
     if (!nameInput.trim()) {
       toast("Missing Name", {
-        description: "Please enter your name",
-        variant: "destructive"
+        description: "Please enter your name"
+      });
+      return;
+    }
+    
+    if (!dobInput) {
+      toast("Missing Date of Birth", {
+        description: "Please enter your date of birth"
       });
       return;
     }
 
-    // Generate ID with name and save both
-    const newId = generateSpiritualId(nameInput);
+    // Generate ID with DOB and save both
+    const newId = generateUserID(dobInput);
     setSpiritualId(newId);
     setSpiritualName(nameInput);
-    localStorage.setItem("spiritualID", newId);
-    localStorage.setItem("spiritualName", nameInput);
-    localStorage.setItem("spiritualIcon", selectedIcon);
     
     // Create full user data object
+    const iconObj = spiritualIcons.find(i => i.id === selectedIcon);
     const userData = {
       id: newId,
       name: nameInput,
+      dob: dobInput,
       symbol: selectedIcon,
-      symbolImage: spiritualIcons.find(i => i.id === selectedIcon)?.symbol || "🕉️",
+      symbolImage: iconObj?.symbol || "🕉️",
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString()
     };
     
-    localStorage.setItem("chantTrackerUserData", JSON.stringify(userData));
+    saveUserData(userData);
     
     setShowNameInput(false);
     setShowLoginOptions(false);
@@ -111,26 +123,27 @@ const SpiritualIdPage: React.FC = () => {
   };
 
   const handleSubmitId = () => {
-    const isValid = validateSpiritualId(inputId);
+    const isValid = validateUserID(inputId);
     setInputValid(isValid);
     
     if (isValid) {
       // If valid, update the stored ID
-      const extractedName = extractNameFromId(inputId) || "Spiritual Seeker";
+      const extractedDob = extractDOBFromID(inputId);
       const iconSymbol = spiritualIcons.find(i => i.id === selectedIcon)?.symbol || "🕉️";
       
       // Create user data object
       const userData = {
         id: inputId,
-        name: extractedName,
+        name: nameInput || "Spiritual Seeker",
+        dob: extractedDob,
         symbol: selectedIcon,
         symbolImage: iconSymbol,
         lastLogin: new Date().toISOString()
       };
       
-      localStorage.setItem("chantTrackerUserData", JSON.stringify(userData));
+      saveUserData(userData);
       setSpiritualId(inputId);
-      setSpiritualName(extractedName);
+      setSpiritualName(userData.name);
       setShowInputField(false);
       setShowLoginOptions(false);
       
@@ -142,17 +155,13 @@ const SpiritualIdPage: React.FC = () => {
       navigate("/");
     } else {
       toast("Invalid ID", {
-        description: "Invalid spiritual ID format",
-        variant: "destructive"
+        description: "Invalid spiritual ID format"
       });
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("spiritualID");
-    localStorage.removeItem("spiritualName");
-    localStorage.removeItem("spiritualIcon");
-    localStorage.removeItem("chantTrackerUserData");
+    logoutUser();
     
     setShowLoginOptions(true);
     setSpiritualId("");
@@ -294,8 +303,8 @@ const SpiritualIdPage: React.FC = () => {
               <div className="text-center mb-6">
                 <div className="text-6xl mb-2">🕉️</div>
                 <h2 className="text-2xl font-bold text-amber-400 mb-3">Welcome, Spiritual Seeker</h2>
-                <p className="text-gray-300 mb-1">Please enter your name to start your spiritual journey</p>
-                <p className="text-amber-300 text-sm">कृपया अपनी आध्यात्मिक यात्रा शुरू करने के लिए अपना नाम लिखें</p>
+                <p className="text-gray-300 mb-1">Please enter your details to start your spiritual journey</p>
+                <p className="text-amber-300 text-sm">कृपया अपनी आध्यात्मिक यात्रा शुरू करने के लिए अपना विवरण दर्ज करें</p>
               </div>
               
               <div className="flex flex-col items-center gap-4">
@@ -309,7 +318,19 @@ const SpiritualIdPage: React.FC = () => {
                     placeholder="Your Name / आपका नाम"
                     value={nameInput}
                     onChange={handleNameInputChange}
-                    onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
+                  />
+                </div>
+                
+                <div className="w-full">
+                  <Label htmlFor="dob-input" className="text-amber-400 mb-1 block">
+                    Date of Birth / जन्म तिथि
+                  </Label>
+                  <Input 
+                    id="dob-input"
+                    type="date"
+                    className="bg-zinc-900 border border-zinc-600 text-white h-14"
+                    value={dobInput}
+                    onChange={handleDobInputChange}
                   />
                 </div>
                 

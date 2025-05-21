@@ -45,8 +45,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
       })
       .catch(err => {
         toast("Copy Failed", {
-          description: "Could not copy to clipboard",
-          variant: "destructive"
+          description: "Could not copy to clipboard"
         });
       });
   };

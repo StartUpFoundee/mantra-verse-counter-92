@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
@@ -14,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import SpiritualIconSelector from "./SpiritualIconSelector";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const WelcomeScreen: React.FC = () => {
@@ -45,12 +44,11 @@ const WelcomeScreen: React.FC = () => {
       toast({
         title: "Missing information",
         description: "Please fill all required fields",
-        variant: "destructive"
       });
       return;
     }
 
-    // Generate unique ID
+    // Generate unique ID based on DOB
     const userID = generateUserID(dob);
 
     // Get selected icon
@@ -86,7 +84,6 @@ const WelcomeScreen: React.FC = () => {
       toast({
         title: "Missing ID",
         description: "Please enter your spiritual ID",
-        variant: "destructive"
       });
       return;
     }
@@ -99,7 +96,6 @@ const WelcomeScreen: React.FC = () => {
       toast({
         title: "Invalid ID Format",
         description: "Please enter a valid spiritual ID (format: DDMMYYYY_XXXX)",
-        variant: "destructive"
       });
       return;
     }
@@ -126,7 +122,6 @@ const WelcomeScreen: React.FC = () => {
       toast({
         title: "Date Required",
         description: "Please enter your date of birth",
-        variant: "destructive"
       });
       return;
     }
