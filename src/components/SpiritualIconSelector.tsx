@@ -27,6 +27,7 @@ const SpiritualIconSelector: React.FC<SpiritualIconSelectorProps> = ({
                 : "bg-zinc-800 border border-zinc-700 hover:bg-zinc-700"
             }`}
             title={icon.name}
+            type="button"
           >
             {icon.symbol}
           </button>

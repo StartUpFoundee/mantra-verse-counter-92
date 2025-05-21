@@ -1,27 +1,27 @@
 
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mic, Hand, Infinity, Clock, UserRound } from "lucide-react";
-import { extractNameFromId } from "@/utils/spiritualIdUtils";
-import { spiritualIcons } from "@/utils/spiritualIdUtils";
+import { Mic, Hand, Infinity, Clock } from "lucide-react";
+import { isUserLoggedIn, getUserData } from "@/utils/spiritualIdUtils";
 import ThemeToggle from "@/components/ThemeToggle";
+import WelcomeScreen from "@/components/WelcomeScreen";
+import ProfileHeader from "@/components/ProfileHeader";
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [lifetimeCount, setLifetimeCount] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
-  const [spiritualId, setSpiritualId] = useState<string>("");
-  const [spiritualName, setSpiritualName] = useState<string>("");
-  const [spiritualIcon, setSpiritualIcon] = useState<string>("om");
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
   useEffect(() => {
+    // Check if user is logged in
+    const loggedIn = isUserLoggedIn();
+    setIsLoggedIn(loggedIn);
+    
     // Load saved counts from localStorage on component mount
     const savedLifetimeCount = localStorage.getItem('lifetimeCount');
     const savedTodayCount = localStorage.getItem('todayCount');
     const savedLastDate = localStorage.getItem('lastCountDate');
-    const savedId = localStorage.getItem('spiritualID');
-    const savedName = localStorage.getItem('spiritualName');
-    const savedIcon = localStorage.getItem('spiritualIcon');
     
     if (savedLifetimeCount) {
       setLifetimeCount(parseInt(savedLifetimeCount, 10));
@@ -35,38 +35,45 @@ const HomePage: React.FC = () => {
       localStorage.setItem('todayCount', '0');
       localStorage.setItem('lastCountDate', today);
     }
-
-    if (savedId) {
-      setSpiritualId(savedId);
-      
-      if (savedName) {
-        setSpiritualName(savedName);
-      } else {
-        // Try to extract name from ID
-        const extractedName = extractNameFromId(savedId);
-        if (extractedName) {
-          setSpiritualName(extractedName);
-        }
-      }
-      
-      if (savedIcon) {
-        setSpiritualIcon(savedIcon);
-      }
-    }
   }, []);
 
-  // Find the selected icon
-  const selectedIconObj = spiritualIcons.find(icon => icon.id === spiritualIcon);
-  const iconSymbol = selectedIconObj ? selectedIconObj.symbol : "🕉️";
+  // If user is not logged in, show the welcome screen
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen flex flex-col bg-black text-white dark:bg-zinc-900">
+        <header className="py-6 text-center relative">
+          <div className="absolute right-4 top-4">
+            <ThemeToggle />
+          </div>
+          <h1 className="text-3xl font-bold text-amber-400">Mantra Counter</h1>
+          <p className="text-gray-300 mt-2">Count your spiritual practice with ease</p>
+        </header>
+        
+        <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
+          <WelcomeScreen />
+        </main>
+        
+        <footer className="py-4 text-center text-gray-400 text-sm">
+          <p>Created with love for spiritual practice</p>
+        </footer>
+      </div>
+    );
+  }
+
+  // Get user data
+  const userData = getUserData();
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white dark:bg-zinc-900">
       <header className="py-6 text-center relative">
-        <div className="absolute right-4 top-4">
+        <div className="absolute right-4 top-4 flex items-center gap-2">
           <ThemeToggle />
+          <ProfileHeader />
         </div>
         <h1 className="text-3xl font-bold text-amber-400">Mantra Counter</h1>
-        <p className="text-gray-300 mt-2">Count your spiritual practice with ease</p>
+        <p className="text-gray-300 mt-2">
+          {userData ? `Namaste, ${userData.name} Ji` : 'Count your spiritual practice with ease'}
+        </p>
       </header>
       
       <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12 gap-8">
@@ -87,39 +94,6 @@ const HomePage: React.FC = () => {
             <p className="text-3xl font-bold text-amber-400">{todayCount}</p>
           </div>
         </div>
-        
-        <button
-          onClick={() => navigate('/spiritual-id')}
-          className="w-full max-w-md bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 rounded-lg p-1 mb-4"
-        >
-          <div className="bg-zinc-900 rounded-lg p-4 flex items-center justify-between dark:bg-zinc-800">
-            <div className="flex items-center gap-3">
-              {spiritualId ? (
-                <div className="w-10 h-10 flex items-center justify-center text-2xl bg-amber-500/20 rounded-full">
-                  {iconSymbol}
-                </div>
-              ) : (
-                <UserRound size={24} className="text-amber-400" />
-              )}
-              <div className="text-left">
-                {spiritualId ? (
-                  <>
-                    <h3 className="text-amber-400 font-medium">
-                      {spiritualName ? `${spiritualName} Ji` : 'My Spiritual ID'}
-                    </h3>
-                    <p className="text-gray-400 text-xs">{spiritualId}</p>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-amber-400 font-medium">Create Spiritual ID</h3>
-                    <p className="text-gray-400 text-xs">आध्यात्मिक आईडी बनाएं</p>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="text-amber-400 text-xl">→</div>
-          </div>
-        </button>
         
         <div className="w-full max-w-md bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 mb-8 dark:bg-zinc-800/30">
           <p className="text-center text-gray-400 text-sm">Advertisement</p>

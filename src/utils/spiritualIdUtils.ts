@@ -1,86 +1,64 @@
 
 /**
- * Generates a unique spiritual ID with the format OM + name + 2-3 characters
+ * Generates a unique user ID based on DOB and timestamp
  */
-export const generateSpiritualId = (name?: string): string => {
-  // Prefix is always "OM"
-  const prefix = "OM";
+export const generateUserID = (dob: string): string => {
+  // Extract date components from the date picker value
+  const dobDate = new Date(dob);
+  const day = String(dobDate.getDate()).padStart(2, '0');
+  const month = String(dobDate.getMonth() + 1).padStart(2, '0');
+  const year = dobDate.getFullYear();
   
-  // Process the name if provided
-  const processedName = name ? name.trim().replace(/\s+/g, "").substring(0, 10) : "";
+  // Format DOB part as DDMMYYYY
+  const dobPart = `${day}${month}${year}`;
   
-  // Get last 2 digits from timestamp
-  const timestamp = Date.now().toString().slice(-2);
+  // Get current timestamp and take last 4 digits
+  const timestamp = new Date().getTime().toString();
+  const uniquePart = timestamp.slice(-4);
   
-  // Create a simple hash from screen size and navigator info
-  // This adds a level of uniqueness even with the same timestamp
-  const screenInfo = `${window.innerWidth}${window.innerHeight}${navigator.userAgent.length}`;
-  const screenHash = screenInfo.split('').reduce((a, b) => {
-    a = ((a << 5) - a) + b.charCodeAt(0);
-    return a & a;
-  }, 0);
-  
-  // Convert hash to a single alphanumeric character
-  const hashStr = Math.abs(screenHash).toString(36).toUpperCase();
-  const suffix = hashStr.length > 1 ? hashStr.substring(0, 1) : 'A';
-  
-  // If no name is provided, fallback to the previous ID format with 4 timestamp digits
-  if (!processedName) {
-    const fullTimestamp = Date.now().toString().slice(-4);
-    const longerSuffix = hashStr.length > 2 ? hashStr.substring(0, 2) : hashStr.padEnd(2, 'A');
-    return `${prefix}${fullTimestamp}${longerSuffix}`;
-  }
-  
-  return `${prefix}${processedName}${timestamp}${suffix}`;
+  // Combine to create final ID
+  return `${dobPart}_${uniquePart}`;
 };
 
 /**
  * Validates if the provided ID follows the spiritual ID format
  */
-export const validateSpiritualId = (id: string): boolean => {
-  // Updated format validation: starts with OM, followed by at least 3 more characters
-  const regex = /^OM[A-Za-z0-9]{3,}$/;
+export const validateUserID = (id: string): boolean => {
+  // Validate format: DDMMYYYY_XXXX
+  const regex = /^\d{8}_\d{4}$/;
   return regex.test(id);
 };
 
 /**
- * Corrects common mistakes in spiritual ID input
+ * Corrects common mistakes in user ID input
  */
-export const correctSpiritualId = (id: string): string => {
-  // Convert to uppercase
-  let corrected = id.toUpperCase();
+export const correctUserID = (id: string): string => {
+  // Remove spaces
+  let corrected = id.trim();
   
-  // Replace common mistypes
-  corrected = corrected.replace(/0/g, "O");
-  corrected = corrected.replace(/[^A-Z0-9]/g, "");
-  
-  // Add OM prefix if missing but seems like a valid ID otherwise
-  if (!corrected.startsWith("OM") && corrected.length >= 3) {
-    corrected = `OM${corrected}`;
+  // Add underscore if missing but seems like a valid ID otherwise
+  if (!corrected.includes('_') && corrected.length === 12) {
+    corrected = `${corrected.substring(0, 8)}_${corrected.substring(8)}`;
   }
   
   return corrected;
 };
 
 /**
- * Extract name from a spiritual ID if possible
+ * Extract date of birth from a user ID
  */
-export const extractNameFromId = (id: string): string | null => {
-  if (!id.startsWith("OM")) return null;
+export const extractDOBFromID = (id: string): string | null => {
+  if (!id.includes('_')) return null;
   
-  // Remove the OM prefix
-  const withoutPrefix = id.substring(2);
+  const dobPart = id.split('_')[0];
+  if (dobPart.length !== 8) return null;
   
-  // If the remaining part is less than 4 characters, it's probably not a name-based ID
-  if (withoutPrefix.length < 4) return null;
+  const day = dobPart.substring(0, 2);
+  const month = dobPart.substring(2, 4);
+  const year = dobPart.substring(4, 8);
   
-  // Extract all letters until we hit a number
-  const nameMatch = withoutPrefix.match(/^([A-Za-z]+)/);
-  if (nameMatch && nameMatch[1].length >= 2) {
-    return nameMatch[1];
-  }
-  
-  return null;
+  // Return in format YYYY-MM-DD for HTML date input
+  return `${year}-${month}-${day}`;
 };
 
 /**
@@ -91,6 +69,7 @@ export const spiritualIcons = [
   { id: "lotus", symbol: "🪷", name: "Lotus" },
   { id: "namaste", symbol: "🙏", name: "Namaste" },
   { id: "peace", symbol: "☮️", name: "Peace" },
+  { id: "chakra", symbol: "⚛️", name: "Chakra" },
   { id: "star", symbol: "✨", name: "Star" },
   { id: "moon", symbol: "🌙", name: "Moon" },
   { id: "sun", symbol: "☀️", name: "Sun" },
@@ -98,3 +77,32 @@ export const spiritualIcons = [
   { id: "incense", symbol: "🧘", name: "Meditation" },
   { id: "mandala", symbol: "🔯", name: "Mandala" },
 ];
+
+/**
+ * Checks if user is logged in
+ */
+export const isUserLoggedIn = (): boolean => {
+  return localStorage.getItem('chantTrackerUserData') !== null;
+};
+
+/**
+ * Gets user data from localStorage
+ */
+export const getUserData = () => {
+  const userData = localStorage.getItem('chantTrackerUserData');
+  return userData ? JSON.parse(userData) : null;
+};
+
+/**
+ * Save user data to localStorage
+ */
+export const saveUserData = (userData: any) => {
+  localStorage.setItem('chantTrackerUserData', JSON.stringify(userData));
+};
+
+/**
+ * Log out user by clearing localStorage
+ */
+export const logoutUser = () => {
+  localStorage.removeItem('chantTrackerUserData');
+};
