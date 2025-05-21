@@ -18,8 +18,8 @@ const ProfileHeader: React.FC = () => {
         className="flex items-center gap-2 p-1 hover:bg-zinc-800 rounded-full"
         onClick={() => setDropdownOpen(!dropdownOpen)}
       >
-        <Avatar className="h-10 w-10 border-2 border-amber-600/30">
-          <AvatarFallback className="bg-amber-500/20 text-amber-400 text-lg">
+        <Avatar className="h-12 w-12 md:h-14 md:w-14 border-2 border-amber-600/30">
+          <AvatarFallback className="bg-amber-500/20 text-amber-400 text-xl md:text-2xl">
             {userData.symbolImage || "🕉️"}
           </AvatarFallback>
         </Avatar>

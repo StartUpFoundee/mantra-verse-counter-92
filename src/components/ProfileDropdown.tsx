@@ -1,8 +1,8 @@
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getUserData, logoutUser } from "@/utils/spiritualIdUtils";
-import { UserRound, HelpCircle, Download, LogOut } from "lucide-react";
+import { UserRound, Copy, Download, LogOut } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 interface ProfileDropdownProps {
@@ -13,6 +13,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const userData = getUserData();
   const navigate = useNavigate();
+  const [showIdCopy, setShowIdCopy] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -30,7 +31,24 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
   const handleLogout = () => {
     logoutUser();
     onClose();
-    navigate("/");
+    navigate("/spiritual-id"); // Take user to spiritual-id page after logout
+  };
+
+  const handleCopyId = () => {
+    if (!userData?.id) return;
+    
+    navigator.clipboard.writeText(userData.id)
+      .then(() => {
+        toast("ID Copied", {
+          description: "Your spiritual ID has been copied to clipboard"
+        });
+      })
+      .catch(err => {
+        toast("Copy Failed", {
+          description: "Could not copy to clipboard",
+          variant: "destructive"
+        });
+      });
   };
 
   const handleExportIdentity = () => {
@@ -53,6 +71,10 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
     onClose();
   };
 
+  const toggleIdCopy = () => {
+    setShowIdCopy(!showIdCopy);
+  };
+
   return (
     <div 
       ref={dropdownRef}
@@ -67,16 +89,25 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
       
       <ul>
         <li>
-          <button 
-            className="flex items-center w-full px-4 py-2 text-sm text-gray-300 hover:bg-zinc-700"
-            onClick={() => {
-              navigate('/spiritual-id');
-              onClose();
-            }}
-          >
-            <UserRound size={16} className="mr-2 text-gray-400" />
-            View ID: {userData?.id}
-          </button>
+          {showIdCopy ? (
+            <div className="px-4 py-2 flex items-center justify-between">
+              <p className="text-sm text-amber-400 truncate">{userData?.id}</p>
+              <button 
+                className="ml-2 p-1 rounded-full hover:bg-zinc-700"
+                onClick={handleCopyId}
+              >
+                <Copy size={16} className="text-gray-400" />
+              </button>
+            </div>
+          ) : (
+            <button 
+              className="flex items-center w-full px-4 py-2 text-sm text-gray-300 hover:bg-zinc-700"
+              onClick={toggleIdCopy}
+            >
+              <UserRound size={16} className="mr-2 text-gray-400" />
+              View ID
+            </button>
+          )}
         </li>
         <li>
           <button 

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,11 +9,11 @@ import {
   generateSpiritualId, 
   validateSpiritualId, 
   extractNameFromId, 
-  spiritualIcons 
+  spiritualIcons,
+  getUserData
 } from "@/utils/spiritualIdUtils";
 import { Label } from "@/components/ui/label";
 import SpiritualIconSelector from "@/components/SpiritualIconSelector";
-import ThemeToggle from "@/components/ThemeToggle";
 import QRCodeModal from "@/components/QRCodeModal";
 
 const SpiritualIdPage: React.FC = () => {
@@ -27,35 +28,23 @@ const SpiritualIdPage: React.FC = () => {
   const [inputValid, setInputValid] = useState<boolean | null>(null);
   const [selectedIcon, setSelectedIcon] = useState<string>("om");
   const [qrModalOpen, setQrModalOpen] = useState<boolean>(false);
+  const [showLoginOptions, setShowLoginOptions] = useState<boolean>(false);
 
   useEffect(() => {
     // Check if user already has a spiritual ID stored
-    const storedId = localStorage.getItem("spiritualID");
-    const storedName = localStorage.getItem("spiritualName");
-    const storedIcon = localStorage.getItem("spiritualIcon");
+    const userData = getUserData();
     
-    if (storedId) {
-      setSpiritualId(storedId);
+    if (userData) {
+      setSpiritualId(userData.id);
+      setSpiritualName(userData.name || "");
+      setSelectedIcon(userData.symbol || "om");
       setIsNewUser(false);
-      
-      if (storedName) {
-        setSpiritualName(storedName);
-      } else {
-        // Try to extract name from ID if not stored separately
-        const extractedName = extractNameFromId(storedId);
-        if (extractedName) {
-          setSpiritualName(extractedName);
-          localStorage.setItem("spiritualName", extractedName);
-        }
-      }
-      
-      if (storedIcon) {
-        setSelectedIcon(storedIcon);
-      }
+      setShowLoginOptions(false);
     } else {
-      // For new users, show name input first
+      // For new users or logged out users, show login options
       setIsNewUser(true);
-      setShowNameInput(true);
+      setShowNameInput(false);
+      setShowLoginOptions(true);
     }
   }, []);
 
@@ -82,8 +71,9 @@ const SpiritualIdPage: React.FC = () => {
 
   const handleNameSubmit = () => {
     if (!nameInput.trim()) {
-      toast.error("Please enter your name", {
-        style: { background: '#262626', color: '#ea384c' }
+      toast("Missing Name", {
+        description: "Please enter your name",
+        variant: "destructive"
       });
       return;
     }
@@ -95,11 +85,29 @@ const SpiritualIdPage: React.FC = () => {
     localStorage.setItem("spiritualID", newId);
     localStorage.setItem("spiritualName", nameInput);
     localStorage.setItem("spiritualIcon", selectedIcon);
-    setShowNameInput(false);
     
-    toast.success("Spiritual ID created successfully!", {
-      style: { background: '#262626', color: '#fcd34d' }
+    // Create full user data object
+    const userData = {
+      id: newId,
+      name: nameInput,
+      symbol: selectedIcon,
+      symbolImage: spiritualIcons.find(i => i.id === selectedIcon)?.symbol || "🕉️",
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString()
+    };
+    
+    localStorage.setItem("chantTrackerUserData", JSON.stringify(userData));
+    
+    setShowNameInput(false);
+    setShowLoginOptions(false);
+    setIsNewUser(false);
+    
+    toast("Identity Created", {
+      description: "Your spiritual ID was created successfully!"
     });
+    
+    // Navigate to home after successful creation
+    navigate("/");
   };
 
   const handleSubmitId = () => {
@@ -108,24 +116,34 @@ const SpiritualIdPage: React.FC = () => {
     
     if (isValid) {
       // If valid, update the stored ID
-      localStorage.setItem("spiritualID", inputId);
+      const extractedName = extractNameFromId(inputId) || "Spiritual Seeker";
+      const iconSymbol = spiritualIcons.find(i => i.id === selectedIcon)?.symbol || "🕉️";
+      
+      // Create user data object
+      const userData = {
+        id: inputId,
+        name: extractedName,
+        symbol: selectedIcon,
+        symbolImage: iconSymbol,
+        lastLogin: new Date().toISOString()
+      };
+      
+      localStorage.setItem("chantTrackerUserData", JSON.stringify(userData));
       setSpiritualId(inputId);
-      localStorage.setItem("spiritualIcon", selectedIcon);
+      setSpiritualName(extractedName);
       setShowInputField(false);
+      setShowLoginOptions(false);
       
-      // Try to extract name from ID
-      const extractedName = extractNameFromId(inputId);
-      if (extractedName) {
-        setSpiritualName(extractedName);
-        localStorage.setItem("spiritualName", extractedName);
-      }
-      
-      toast.success("Spiritual ID updated successfully!", {
-        style: { background: '#262626', color: '#fcd34d' }
+      toast("Login Successful", {
+        description: "You've logged in with your spiritual ID"
       });
+      
+      // Navigate to home after successful login
+      navigate("/");
     } else {
-      toast.error("Invalid spiritual ID format", {
-        style: { background: '#262626', color: '#ea384c' }
+      toast("Invalid ID", {
+        description: "Invalid spiritual ID format",
+        variant: "destructive"
       });
     }
   };
@@ -134,20 +152,31 @@ const SpiritualIdPage: React.FC = () => {
     localStorage.removeItem("spiritualID");
     localStorage.removeItem("spiritualName");
     localStorage.removeItem("spiritualIcon");
-    setShowNameInput(true);
+    localStorage.removeItem("chantTrackerUserData");
+    
+    setShowLoginOptions(true);
     setSpiritualId("");
     setSpiritualName("");
     setInputId("");
     setIsNewUser(true);
     setSelectedIcon("om");
     
-    toast.info("Logged out successfully", {
-      style: { background: '#262626', color: '#fcd34d' }
+    toast("Logged Out", {
+      description: "You have been logged out successfully"
     });
   };
 
+  const handleShowCreateId = () => {
+    setShowNameInput(true);
+    setShowLoginOptions(false);
+  };
+
+  const handleShowLoginWithId = () => {
+    setShowInputField(true);
+    setShowLoginOptions(false);
+  };
+
   const handleDownloadScreenshot = () => {
-    // For QR code download functionality
     setQrModalOpen(true);
   };
 
@@ -172,10 +201,10 @@ const SpiritualIdPage: React.FC = () => {
   const selectedIconObj = spiritualIcons.find(icon => icon.id === selectedIcon);
   const iconSymbol = selectedIconObj ? selectedIconObj.symbol : "🕉️";
 
-  // Name input screen for new users
-  if (showNameInput) {
+  // Login options screen
+  if (showLoginOptions) {
     return (
-      <div className="min-h-screen flex flex-col bg-black text-white dark:bg-zinc-900">
+      <div className="min-h-screen flex flex-col bg-black text-white">
         <header className="py-4 px-4 flex justify-between items-center">
           <Button 
             variant="ghost" 
@@ -186,17 +215,77 @@ const SpiritualIdPage: React.FC = () => {
             <ArrowLeft className="h-6 w-6" />
           </Button>
           <h1 className="text-xl font-bold text-amber-400">Spiritual ID</h1>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="text-amber-400 hover:bg-zinc-800"
-              onClick={() => navigate('/')}
-            >
-              <Home className="h-6 w-6" />
-            </Button>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-amber-400 hover:bg-zinc-800"
+            onClick={() => navigate('/')}
+          >
+            <Home className="h-6 w-6" />
+          </Button>
+        </header>
+        
+        <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
+          <div className="w-full max-w-md">
+            <div className="bg-amber-500/20 border-2 border-amber-500 rounded-lg p-6 mb-8 animate-fade-in">
+              <div className="text-center mb-6">
+                <div className="text-6xl mb-2">🕉️</div>
+                <h2 className="text-2xl font-bold text-amber-400 mb-3">Welcome, Spiritual Seeker</h2>
+                <p className="text-gray-300 mb-1">Please choose an option to continue</p>
+                <p className="text-amber-300 text-sm">आगे बढ़ने के लिए कृपया एक विकल्प चुनें</p>
+              </div>
+              
+              <div className="flex flex-col items-center gap-4">
+                <Button 
+                  className="bg-amber-500 hover:bg-amber-600 text-black w-full h-12 text-lg"
+                  onClick={handleShowCreateId}
+                >
+                  Create New Identity / नई पहचान बनाएं
+                </Button>
+                
+                <Button 
+                  className="bg-zinc-700 hover:bg-zinc-600 text-white w-full h-12 text-lg"
+                  onClick={handleShowLoginWithId}
+                >
+                  Login with ID / आईडी से लॉगिन करें
+                </Button>
+                
+                <Button 
+                  className="bg-transparent hover:bg-zinc-800 text-gray-300 w-full"
+                  onClick={() => navigate('/')}
+                >
+                  Continue as Guest / अतिथि के रूप में जारी रखें
+                </Button>
+              </div>
+            </div>
           </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Name input screen for new users
+  if (showNameInput) {
+    return (
+      <div className="min-h-screen flex flex-col bg-black text-white">
+        <header className="py-4 px-4 flex justify-between items-center">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-amber-400 hover:bg-zinc-800"
+            onClick={() => setShowLoginOptions(true)}
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-xl font-bold text-amber-400">Spiritual ID</h1>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-amber-400 hover:bg-zinc-800"
+            onClick={() => navigate('/')}
+          >
+            <Home className="h-6 w-6" />
+          </Button>
         </header>
         
         <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
@@ -216,7 +305,7 @@ const SpiritualIdPage: React.FC = () => {
                   </Label>
                   <Input 
                     id="name-input"
-                    className="bg-zinc-900 border border-zinc-600 text-white text-lg h-14 text-center dark:bg-zinc-800"
+                    className="bg-zinc-900 border border-zinc-600 text-white text-lg h-14 text-center"
                     placeholder="Your Name / आपका नाम"
                     value={nameInput}
                     onChange={handleNameInputChange}
@@ -240,8 +329,84 @@ const SpiritualIdPage: React.FC = () => {
     );
   }
 
+  // ID input for existing users
+  if (showInputField) {
+    return (
+      <div className="min-h-screen flex flex-col bg-black text-white">
+        <header className="py-4 px-4 flex justify-between items-center">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-amber-400 hover:bg-zinc-800"
+            onClick={() => setShowLoginOptions(true)}
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-xl font-bold text-amber-400">Spiritual ID</h1>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-amber-400 hover:bg-zinc-800"
+            onClick={() => navigate('/')}
+          >
+            <Home className="h-6 w-6" />
+          </Button>
+        </header>
+        
+        <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
+          <div className="w-full max-w-md">
+            <div className="bg-amber-500/20 border-2 border-amber-500 rounded-lg p-6 mb-8">
+              <h3 className="text-lg font-medium text-amber-400 mb-2 text-center">Enter Your Spiritual ID</h3>
+              <p className="text-gray-300 text-sm mb-4 text-center">अपना आध्यात्मिक आईडी दर्ज करें</p>
+              
+              <div className="mb-4">
+                <Input 
+                  className={`bg-zinc-900 border ${
+                    inputValid === null ? 'border-zinc-600' : 
+                    inputValid ? 'border-green-500' : 'border-red-500'
+                  } text-amber-400 text-xl text-center tracking-wider h-16`}
+                  placeholder="OMName123A"
+                  value={inputId}
+                  onChange={handleInputChange}
+                  maxLength={15}
+                />
+                
+                {inputValid === false && (
+                  <p className="text-red-500 text-sm mt-2">
+                    Invalid format. IDs usually start with OM and have your name followed by numbers.
+                    <br />
+                    अमान्य प्रारूप। आईडी आमतौर पर OM से शुरू होती है और इसके बाद आपका नाम और अंक होते हैं।
+                  </p>
+                )}
+              </div>
+              
+              <SpiritualIconSelector selectedIcon={selectedIcon} onSelectIcon={handleIconSelect} />
+              
+              <div className="flex gap-2 mt-4">
+                <Button 
+                  className="bg-amber-500 hover:bg-amber-600 text-black flex-1"
+                  onClick={handleSubmitId}
+                  disabled={!inputId || inputValid === false}
+                >
+                  Login / लॉगिन करें
+                </Button>
+                <Button 
+                  className="bg-zinc-700 hover:bg-zinc-600 text-white"
+                  onClick={() => setShowLoginOptions(true)}
+                >
+                  Cancel / रद्द करें
+                </Button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Main spiritual ID view (when logged in)
   return (
-    <div className="min-h-screen flex flex-col bg-black text-white dark:bg-zinc-900">
+    <div className="min-h-screen flex flex-col bg-black text-white">
       <header className="py-4 px-4 flex justify-between items-center">
         <Button 
           variant="ghost" 
@@ -252,17 +417,14 @@ const SpiritualIdPage: React.FC = () => {
           <ArrowLeft className="h-6 w-6" />
         </Button>
         <h1 className="text-xl font-bold text-amber-400">Spiritual ID</h1>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Button 
-            variant="ghost" 
-            size="icon"
-            className="text-amber-400 hover:bg-zinc-800"
-            onClick={() => navigate('/')}
-          >
-            <Home className="h-6 w-6" />
-          </Button>
-        </div>
+        <Button 
+          variant="ghost" 
+          size="icon"
+          className="text-amber-400 hover:bg-zinc-800"
+          onClick={() => navigate('/')}
+        >
+          <Home className="h-6 w-6" />
+        </Button>
       </header>
       
       {/* QR Code Modal */}
@@ -274,122 +436,30 @@ const SpiritualIdPage: React.FC = () => {
         />
       )}
       
+      {/* Main content */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12">
-        {isNewUser ? (
-          <div className="bg-amber-500/20 border-2 border-amber-500 rounded-lg p-6 mb-8 animate-fade-in">
-            <div className="text-center mb-6">
-              <div className="text-6xl mb-2">{iconSymbol}</div>
-              <h2 className="text-2xl font-bold text-amber-400 mb-3">
-                Welcome, {spiritualName ? `${spiritualName} Ji` : 'Spiritual Seeker'}
-              </h2>
-              <p className="text-gray-300 mb-1">Your unique spiritual number has been created</p>
-              <p className="text-amber-300 text-sm">आपका विशिष्ट आध्यात्मिक नंबर बना दिया गया है</p>
-            </div>
-            
-            <div className="flex flex-col items-center">
-              <div className="bg-gradient-to-r from-amber-600 to-amber-700 p-1 rounded-lg mb-6">
-                <div className="bg-black rounded-lg p-4 text-center dark:bg-zinc-900">
-                  <p className="text-gray-400 text-xs mb-1">Your Spiritual ID / आपका आध्यात्मिक आईडी</p>
-                  <p className="text-3xl md:text-4xl font-bold tracking-wider text-amber-400">{spiritualId}</p>
-                </div>
-              </div>
-              
-              <div className="bg-zinc-800/80 rounded-lg p-4 mb-6 text-sm dark:bg-zinc-800/50">
-                <p className="text-gray-200 mb-2">
-                  Your spiritual number helps save your progress. Please write down this number: <span className="font-bold text-amber-400">{spiritualId}</span>. You will need it if you use a different phone or computer.
-                </p>
-                <p className="text-gray-300 text-xs">
-                  आपका आध्यात्मिक नंबर आपकी प्रगति को सहेजने में मदद करता है। कृपया इस नंबर को लिख लें: <span className="font-bold text-amber-400">{spiritualId}</span>। अगर आप दूसरा फोन या कंप्यूटर इस्तेमाल करते हैं, तो आपको यह नंबर चाहिए होगा।
-                </p>
+        <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 mb-8 w-full max-w-md">
+          <div className="text-center mb-6">
+            <div className="text-6xl mb-2">{iconSymbol}</div>
+            <h2 className="text-xl font-bold text-amber-400 mb-2">
+              {spiritualName ? `${spiritualName} Ji, आपका स्वागत है` : 'Your Spiritual Identity'}
+            </h2>
+            <p className="text-gray-300 text-sm">आपकी आध्यात्मिक पहचान</p>
+          </div>
+          
+          <div className="flex flex-col items-center">
+            <div className="bg-gradient-to-r from-amber-600 to-amber-700 p-1 rounded-lg mb-6">
+              <div className="bg-black rounded-lg p-4 text-center">
+                <p className="text-gray-400 text-xs mb-1">Spiritual ID / आध्यात्मिक आईडी</p>
+                <p className="text-3xl md:text-4xl font-bold tracking-wider text-amber-400">{spiritualId}</p>
               </div>
             </div>
           </div>
-        ) : (
-          <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 mb-8 dark:bg-zinc-800/50">
-            <div className="text-center mb-6">
-              <div className="text-6xl mb-2">{iconSymbol}</div>
-              <h2 className="text-xl font-bold text-amber-400 mb-2">
-                {spiritualName ? `${spiritualName} Ji, आपका स्वागत है` : 'Your Spiritual Identity'}
-              </h2>
-              <p className="text-gray-300 text-sm">आपकी आध्यात्मिक पहचान</p>
-            </div>
-            
-            <div className="flex flex-col items-center">
-              <div className="bg-gradient-to-r from-amber-600 to-amber-700 p-1 rounded-lg mb-6">
-                <div className="bg-black rounded-lg p-4 text-center dark:bg-zinc-900">
-                  <p className="text-gray-400 text-xs mb-1">Spiritual ID / आध्यात्मिक आईडी</p>
-                  <p className="text-3xl md:text-4xl font-bold tracking-wider text-amber-400">{spiritualId}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Input section for users to enter their ID on a new device */}
-        {showInputField ? (
-          <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 mb-8 dark:bg-zinc-800/50">
-            <h3 className="text-lg font-medium text-amber-400 mb-2">Enter Your Spiritual ID</h3>
-            <p className="text-gray-300 text-sm mb-4">अपना आध्यात्मिक आईडी दर्ज करें</p>
-            
-            <div className="mb-4">
-              <Input 
-                className={`bg-zinc-900 border ${
-                  inputValid === null ? 'border-zinc-600' : 
-                  inputValid ? 'border-green-500' : 'border-red-500'
-                } text-amber-400 text-xl text-center tracking-wider h-16 dark:bg-zinc-800`}
-                placeholder="OMName123A"
-                value={inputId}
-                onChange={handleInputChange}
-                maxLength={15}
-              />
-              
-              {inputValid === false && (
-                <p className="text-red-500 text-sm mt-2">
-                  Invalid format. IDs usually start with OM and have your name followed by numbers.
-                  <br />
-                  अमान्य प्रारूप। आईडी आमतौर पर OM से शुरू होती है और इसके बाद आपका नाम और अंक होते हैं।
-                </p>
-              )}
-              
-              {inputValid === true && (
-                <p className="text-green-500 text-sm mt-2">
-                  Valid spiritual ID format! ✓
-                  <br />
-                  मान्य आध्यात्मिक आईडी प्रारूप! ✓
-                </p>
-              )}
-            </div>
-            
-            <SpiritualIconSelector selectedIcon={selectedIcon} onSelectIcon={handleIconSelect} />
-            
-            <div className="flex gap-2 mt-4">
-              <Button 
-                className="bg-amber-500 hover:bg-amber-600 text-black flex-1"
-                onClick={handleSubmitId}
-                disabled={!inputId || inputValid === false}
-              >
-                Confirm / पुष्टि करें
-              </Button>
-              <Button 
-                className="bg-zinc-700 hover:bg-zinc-600 text-white"
-                onClick={() => setShowInputField(false)}
-              >
-                Cancel / रद्द करें
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button 
-            className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 w-full mb-4 dark:bg-zinc-800/70"
-            onClick={() => setShowInputField(true)}
-          >
-            Enter Different ID / अलग आईडी दर्ज करें
-          </Button>
-        )}
+        </div>
         
         {/* Logout button */}
         <Button 
-          className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 w-full mb-8 flex items-center justify-center gap-2 dark:bg-zinc-800/70"
+          className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 w-full mb-8 flex items-center justify-center gap-2 max-w-md"
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4" />
@@ -397,7 +467,7 @@ const SpiritualIdPage: React.FC = () => {
         </Button>
         
         {/* Sharing options */}
-        <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 dark:bg-zinc-800/50">
+        <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-6 w-full max-w-md">
           <h3 className="text-lg font-medium text-amber-400 mb-4 text-center">
             Share Your Spiritual ID
             <br />
@@ -407,7 +477,7 @@ const SpiritualIdPage: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <Button 
               variant="outline" 
-              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6 dark:bg-zinc-800/70"
+              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6"
               onClick={handleDownloadScreenshot}
             >
               <Download className="h-6 w-6 mb-2" />
@@ -417,7 +487,7 @@ const SpiritualIdPage: React.FC = () => {
             
             <Button 
               variant="outline" 
-              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6 dark:bg-zinc-800/70"
+              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6"
               onClick={handleShareWhatsApp}
             >
               <Share2 className="h-6 w-6 mb-2" />
@@ -427,7 +497,7 @@ const SpiritualIdPage: React.FC = () => {
             
             <Button 
               variant="outline" 
-              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6 dark:bg-zinc-800/70"
+              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6"
               onClick={handlePrint}
             >
               <Printer className="h-6 w-6 mb-2" />
@@ -437,7 +507,7 @@ const SpiritualIdPage: React.FC = () => {
             
             <Button 
               variant="outline" 
-              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6 dark:bg-zinc-800/70"
+              className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 flex flex-col items-center py-6"
               onClick={handleQrCode}
             >
               <QrCode className="h-6 w-6 mb-2" />
