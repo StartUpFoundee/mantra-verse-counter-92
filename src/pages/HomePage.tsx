@@ -6,6 +6,7 @@ import { isUserLoggedIn, getUserData } from "@/utils/spiritualIdUtils";
 import ThemeToggle from "@/components/ThemeToggle";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import ProfileHeader from "@/components/ProfileHeader";
+import WelcomePopup from "@/components/WelcomePopup";
 import { getLifetimeCount, getTodayCount } from "@/utils/indexedDBUtils";
 import { toast } from "@/components/ui/sonner";
 
@@ -92,6 +93,9 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white dark:bg-zinc-900">
+      {/* Add the WelcomePopup component */}
+      <WelcomePopup />
+      
       <header className="py-6 text-center relative">
         <div className="absolute right-4 top-4 flex items-center gap-2">
           <ThemeToggle />
