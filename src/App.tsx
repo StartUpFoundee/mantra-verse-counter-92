@@ -10,6 +10,7 @@ import AudioCountPage from "./pages/AudioCountPage";
 import ManualCountPage from "./pages/ManualCountPage";
 import SpiritualIdPage from "./pages/SpiritualIdPage";
 import IdentityGuidePage from "./pages/IdentityGuidePage";
+import ActiveDaysPage from "./pages/ActiveDaysPage";
 import NotFound from "./pages/NotFound";
 import { initializeDatabase } from "./utils/indexedDBUtils";
 
@@ -36,6 +37,7 @@ const App = () => {
             <Route path="/manual" element={<ManualCountPage />} />
             <Route path="/spiritual-id" element={<SpiritualIdPage />} />
             <Route path="/identity-guide" element={<IdentityGuidePage />} />
+            <Route path="/active-days" element={<ActiveDaysPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

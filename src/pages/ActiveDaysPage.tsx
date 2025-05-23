@@ -1,0 +1,237 @@
+
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Calendar, Flame, Target, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getActivityData, getStreakData } from "@/utils/activityUtils";
+
+interface ActivityData {
+  [date: string]: number;
+}
+
+interface StreakData {
+  currentStreak: number;
+  maxStreak: number;
+  totalActiveDays: number;
+}
+
+const ActiveDaysPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [activityData, setActivityData] = useState<ActivityData>({});
+  const [streakData, setStreakData] = useState<StreakData>({
+    currentStreak: 0,
+    maxStreak: 0,
+    totalActiveDays: 0
+  });
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [hoveredDay, setHoveredDay] = useState<{date: string, count: number} | null>(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const loadData = async () => {
+      const activity = await getActivityData();
+      const streaks = await getStreakData();
+      setActivityData(activity);
+      setStreakData(streaks);
+    };
+    loadData();
+  }, []);
+
+  const getActivityLevel = (count: number): string => {
+    if (count === 0) return "bg-gray-200 dark:bg-gray-800";
+    if (count <= 20) return "bg-green-200 dark:bg-green-900/30";
+    if (count <= 50) return "bg-green-300 dark:bg-green-800/50";
+    if (count <= 100) return "bg-green-400 dark:bg-green-700/70";
+    return "bg-green-500 dark:bg-green-600";
+  };
+
+  const generateCalendarData = () => {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 364); // Last 365 days
+    
+    const days = [];
+    const currentDay = new Date(startDate);
+    
+    while (currentDay <= today) {
+      const dateStr = currentDay.toISOString().split('T')[0];
+      const count = activityData[dateStr] || 0;
+      const isToday = dateStr === today.toISOString().split('T')[0];
+      
+      days.push({
+        date: dateStr,
+        count,
+        isToday,
+        dayOfWeek: currentDay.getDay(),
+        month: currentDay.getMonth(),
+        displayDate: new Date(currentDay)
+      });
+      
+      currentDay.setDate(currentDay.getDate() + 1);
+    }
+    
+    return days;
+  };
+
+  const calendarDays = generateCalendarData();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    setMousePosition({ x: e.clientX, y: e.clientY });
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white dark:bg-zinc-900 p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <Button
+          onClick={() => navigate('/')}
+          variant="ghost"
+          className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Back to Home
+        </Button>
+        <h1 className="text-2xl font-bold text-amber-400">Active Days</h1>
+        <div className="w-24"></div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <Card className="bg-zinc-800/50 border-amber-600/20 text-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-amber-400">
+              <Flame className="w-5 h-5" />
+              Current Streak
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-white">{streakData.currentStreak}</div>
+            <p className="text-gray-400 text-sm">days in a row</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-zinc-800/50 border-amber-600/20 text-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-amber-400">
+              <TrendingUp className="w-5 h-5" />
+              Max Streak
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-white">{streakData.maxStreak}</div>
+            <p className="text-gray-400 text-sm">personal best</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-zinc-800/50 border-amber-600/20 text-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-amber-400">
+              <Target className="w-5 h-5" />
+              Total Active Days
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-white">{streakData.totalActiveDays}</div>
+            <p className="text-gray-400 text-sm">lifetime practice</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Calendar Grid */}
+      <Card className="bg-zinc-800/50 border-amber-600/20 text-white">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-400">
+            <Calendar className="w-5 h-5" />
+            Activity Calendar
+          </CardTitle>
+          <p className="text-gray-400 text-sm">Your spiritual practice journey over the past year</p>
+        </CardHeader>
+        <CardContent>
+          {/* Weekday Labels */}
+          <div className="flex gap-1 mb-2 ml-8">
+            {weekdays.map((day) => (
+              <div key={day} className="w-3 h-3 text-xs text-gray-400 flex items-center justify-center">
+                {day[0]}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="flex gap-1 overflow-x-auto pb-4">
+            {Array.from({ length: 53 }, (_, weekIndex) => (
+              <div key={weekIndex} className="flex flex-col gap-1">
+                {/* Month label for first week of each month */}
+                {weekIndex === 0 || (calendarDays[weekIndex * 7] && calendarDays[weekIndex * 7].displayDate.getDate() <= 7) ? (
+                  <div className="h-4 text-xs text-gray-400 mb-1">
+                    {calendarDays[weekIndex * 7] && months[calendarDays[weekIndex * 7].month]}
+                  </div>
+                ) : (
+                  <div className="h-4 mb-1"></div>
+                )}
+                
+                {Array.from({ length: 7 }, (_, dayIndex) => {
+                  const dayData = calendarDays[weekIndex * 7 + dayIndex];
+                  if (!dayData) return <div key={dayIndex} className="w-3 h-3"></div>;
+                  
+                  return (
+                    <div
+                      key={dayIndex}
+                      className={`w-3 h-3 rounded-sm cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-amber-400 ${
+                        getActivityLevel(dayData.count)
+                      } ${dayData.isToday ? 'ring-2 ring-amber-500' : ''}`}
+                      onMouseEnter={(e) => {
+                        setHoveredDay({ date: dayData.date, count: dayData.count });
+                        handleMouseMove(e);
+                      }}
+                      onMouseMove={handleMouseMove}
+                      onMouseLeave={() => setHoveredDay(null)}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-2 mt-4 text-sm text-gray-400">
+            <span>Less</span>
+            <div className="w-3 h-3 bg-gray-200 dark:bg-gray-800 rounded-sm"></div>
+            <div className="w-3 h-3 bg-green-200 dark:bg-green-900/30 rounded-sm"></div>
+            <div className="w-3 h-3 bg-green-300 dark:bg-green-800/50 rounded-sm"></div>
+            <div className="w-3 h-3 bg-green-400 dark:bg-green-700/70 rounded-sm"></div>
+            <div className="w-3 h-3 bg-green-500 dark:bg-green-600 rounded-sm"></div>
+            <span>More</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tooltip */}
+      {hoveredDay && (
+        <div
+          className="fixed z-50 bg-zinc-900 border border-amber-600/30 rounded-lg px-3 py-2 text-sm pointer-events-none"
+          style={{
+            left: mousePosition.x + 10,
+            top: mousePosition.y - 40,
+          }}
+        >
+          <div className="text-white font-medium">
+            {new Date(hoveredDay.date).toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })}
+          </div>
+          <div className="text-amber-400">
+            {hoveredDay.count} jaaps completed
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ActiveDaysPage;

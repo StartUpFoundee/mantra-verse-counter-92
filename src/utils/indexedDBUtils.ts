@@ -1,4 +1,3 @@
-
 /**
  * IndexedDB utilities for Naam Japa App
  * Provides enhanced storage capabilities and maintains compatibility with existing app features
@@ -15,7 +14,8 @@ const STORES = {
   reminders: "reminders",
   achievements: "achievements",
   settings: "settings",
-  audioCache: "audioCache"
+  audioCache: "audioCache",
+  activityData: "activityData"
 };
 
 // Keys for backwards compatibility with localStorage
@@ -69,6 +69,10 @@ const initializeDB = (): Promise<IDBDatabase> => {
       
       if (!db.objectStoreNames.contains(STORES.audioCache)) {
         db.createObjectStore(STORES.audioCache, { keyPath: "id" });
+      }
+      
+      if (!db.objectStoreNames.contains(STORES.activityData)) {
+        db.createObjectStore(STORES.activityData, { keyPath: "date" });
       }
     };
   });
@@ -440,6 +444,8 @@ export const initializeDatabase = async (): Promise<void> => {
   }
 };
 
+export { STORES, storeData, getData, deleteData, getAllData };
+
 export default {
   saveUserData,
   getUserData,
@@ -452,5 +458,9 @@ export default {
   initializeDatabase,
   setItem,
   getItem,
-  removeItem
+  removeItem,
+  storeData,
+  getData,
+  deleteData,
+  getAllData
 };

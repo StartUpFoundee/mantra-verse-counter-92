@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mic, Hand, Infinity, Clock } from "lucide-react";
@@ -7,6 +6,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import ProfileHeader from "@/components/ProfileHeader";
 import WelcomePopup from "@/components/WelcomePopup";
+import ActiveDaysButton from "@/components/ActiveDaysButton";
 import { getLifetimeCount, getTodayCount } from "@/utils/indexedDBUtils";
 import { toast } from "@/components/ui/sonner";
 
@@ -161,6 +161,9 @@ const HomePage: React.FC = () => {
           </button>
         </div>
       </main>
+      
+      {/* Active Days Floating Button */}
+      <ActiveDaysButton />
       
       <footer className="py-4 text-center text-gray-400 text-sm">
         <p>Created with love for spiritual practice</p>
