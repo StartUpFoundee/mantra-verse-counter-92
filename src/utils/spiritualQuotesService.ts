@@ -25,8 +25,23 @@ const defaultQuotes = [
   {
     english: "The sound of your mantra is the echo of your soul.",
     hindi: "आपके मंत्र की आवाज आपकी आत्मा की प्रतिध्वनि है।"
+  },
+  {
+    english: "To chant is to invite divine presence into our lives.",
+    hindi: "जाप करना हमारे जीवन में दिव्य उपस्थिति को आमंत्रित करना है।"
+  },
+  {
+    english: "The deepest prayer needs no words, only devotion.",
+    hindi: "सबसे गहरी प्रार्थना को शब्दों की नहीं, केवल भक्ति की आवश्यकता होती है।"
+  },
+  {
+    english: "As the mala beads move through your fingers, let worries slip away.",
+    hindi: "जैसे माला के मनके आपकी उंगलियों से गुजरते हैं, चिंताओं को दूर जाने दें।"
   }
 ];
+
+// Cache quotes in memory for faster retrieval
+let cachedRandomQuotes: { english: string; hindi: string }[] = [];
 
 interface QuoteResponse {
   english: string;
@@ -62,10 +77,25 @@ export const fetchQuoteFromAPI = async (): Promise<QuoteResponse> => {
   }
 };
 
-// Function to get a random quote from our default collection
+// Preload quotes to memory for faster access
+export const preloadQuotes = () => {
+  // Create a random shuffled copy of the quotes for better variety
+  cachedRandomQuotes = [...defaultQuotes].sort(() => Math.random() - 0.5);
+};
+
+// Initialize the preloaded quotes
+preloadQuotes();
+
+// Function to get a random quote from our default collection with better performance
 export const getRandomDefaultQuote = (): QuoteResponse => {
-  const randomIndex = Math.floor(Math.random() * defaultQuotes.length);
-  return defaultQuotes[randomIndex];
+  // If we've used all our cached quotes, refresh them
+  if (cachedRandomQuotes.length === 0) {
+    preloadQuotes();
+  }
+  
+  // Take the next quote from our shuffled array (this is faster than random access)
+  // and remove it from the cache so we don't repeat until we've gone through all quotes
+  return cachedRandomQuotes.pop() || defaultQuotes[0];
 };
 
 // Main function to get a spiritual quote (tries API first, falls back to defaults)
@@ -85,5 +115,6 @@ export const getSpiritualQuote = async (): Promise<QuoteResponse> => {
 export default {
   getSpiritualQuote,
   getRandomDefaultQuote,
-  fetchQuoteFromAPI
+  fetchQuoteFromAPI,
+  preloadQuotes
 };

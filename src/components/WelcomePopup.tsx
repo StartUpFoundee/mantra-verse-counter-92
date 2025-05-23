@@ -18,15 +18,16 @@ const WelcomePopup: React.FC = () => {
   const [userData, setUserData] = useState<any>(null);
 
   useEffect(() => {
+    // Load user data early to improve perceived performance
+    const userDataObj = getUserData();
+    setUserData(userDataObj);
+    
     // Check if we've shown the popup today already
     const today = new Date().toDateString();
     const lastShownDate = localStorage.getItem('welcomePopupLastShown');
     
-    const userDataObj = getUserData();
-    setUserData(userDataObj);
-    
-    if (userDataObj && (!lastShownDate || lastShownDate !== today)) {
-      // Only show popup if user is logged in and hasn't seen it today
+    if (userDataObj) {
+      // Always show the popup on page reload regardless of last shown date
       setIsOpen(true);
       // Save that we've shown the popup today
       localStorage.setItem('welcomePopupLastShown', today);
