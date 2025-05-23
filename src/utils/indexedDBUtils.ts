@@ -1,3 +1,4 @@
+
 /**
  * IndexedDB utilities for Naam Japa App
  * Provides enhanced storage capabilities and maintains compatibility with existing app features
@@ -263,17 +264,34 @@ export const saveUserData = async (userData: any): Promise<void> => {
 };
 
 export const getUserData = async (): Promise<any> => {
-  // Try IndexedDB first
-  const userData = await getData(STORES.userIdentity, userData?.id || "defaultUser");
+  // Try to get user ID from localStorage first for faster access
+  const localDataStr = localStorage.getItem(KEYS.userData);
+  let userId = "defaultUser";
+  
+  // Extract user ID if localStorage has data
+  if (localDataStr) {
+    try {
+      const localData = JSON.parse(localDataStr);
+      if (localData && localData.id) {
+        userId = localData.id;
+      }
+    } catch (e) {
+      console.error("Error parsing localStorage user data:", e);
+    }
+  }
+  
+  // Try IndexedDB with the obtained ID
+  const userData = await getData(STORES.userIdentity, userId);
   
   // Fall back to localStorage for existing users
-  if (!userData) {
-    const localData = localStorage.getItem(KEYS.userData);
-    if (localData) {
-      const parsedData = JSON.parse(localData);
+  if (!userData && localDataStr) {
+    try {
+      const parsedData = JSON.parse(localDataStr);
       // Store it in IndexedDB for future use
       await storeData(STORES.userIdentity, parsedData);
       return parsedData;
+    } catch (e) {
+      console.error("Error parsing user data from localStorage:", e);
     }
   }
   
