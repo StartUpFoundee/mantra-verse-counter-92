@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import SpiritualIconSelector from "./SpiritualIconSelector";
 import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { initializeDatabase, migrateFromLocalStorage } from "@/utils/indexedDBUtils";
 
 const WelcomeScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -28,8 +29,21 @@ const WelcomeScreen: React.FC = () => {
   const [recoveryDob, setRecoveryDob] = useState("");
   const [recoveredIds, setRecoveredIds] = useState<string[]>([]);
   const [isRecoverySearched, setIsRecoverySearched] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
 
   useEffect(() => {
+    // Initialize database and migrate data if needed
+    const init = async () => {
+      setIsMigrating(true);
+      await initializeDatabase();
+      const migrationSuccess = await migrateFromLocalStorage();
+      if (migrationSuccess) {
+        console.log("Data migration successful");
+      }
+      setIsMigrating(false);
+    };
+    init();
+    
     // Check URL for ID parameter (for QR code logins)
     const params = new URLSearchParams(location.search);
     const idParam = params.get('id');
@@ -39,6 +53,17 @@ const WelcomeScreen: React.FC = () => {
       setActiveTab("login");
     }
   }, [location]);
+
+  if (isMigrating) {
+    return (
+      <div className="w-full max-w-md mx-auto p-6 bg-zinc-800/50 border border-zinc-700 rounded-xl">
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="text-amber-400 text-lg mb-6">Upgrading your spiritual journey...</div>
+          <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
 
   const handleCreateIdentity = () => {
     if (!name || !dob || !selectedIcon) {

@@ -11,7 +11,7 @@ interface ProfileDropdownProps {
 
 const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const userData = getUserData();
+  const [userData, setUserData] = useState<any>(null);
   const navigate = useNavigate();
   const [showIdCopy, setShowIdCopy] = useState(false);
 
@@ -23,6 +23,11 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
+
+    // Get user data
+    const currentUserData = getUserData();
+    setUserData(currentUserData);
+    
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
@@ -74,17 +79,17 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
     setShowIdCopy(!showIdCopy);
   };
 
+  if (!userData) return null;
+
   return (
     <div 
       ref={dropdownRef}
       className="absolute top-full right-0 mt-2 w-56 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 z-50"
     >
-      {userData && (
-        <div className="px-4 py-3 border-b border-zinc-700">
-          <p className="text-sm font-medium text-amber-400">{userData.name}</p>
-          <p className="text-xs text-gray-400 mt-1">ID: {userData.id}</p>
-        </div>
-      )}
+      <div className="px-4 py-3 border-b border-zinc-700">
+        <p className="text-sm font-medium text-amber-400">{userData.name}</p>
+        <p className="text-xs text-gray-400 mt-1">ID: {userData.id}</p>
+      </div>
       
       <ul>
         <li>

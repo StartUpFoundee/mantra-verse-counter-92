@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { SpeechDetection } from "@/utils/speechDetection";
@@ -6,6 +5,7 @@ import TargetSelector from "@/components/TargetSelector";
 import CompletionAlert from "@/components/CompletionAlert";
 import { Mic, MicOff, Volume, Volume2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { getLifetimeCount, getTodayCount, updateMantraCounts } from "@/utils/indexedDBUtils";
 
 const MantraCounter: React.FC = () => {
   const [targetCount, setTargetCount] = useState<number | null>(null);
@@ -17,28 +17,29 @@ const MantraCounter: React.FC = () => {
   const [sensitivityLevel, setSensitivityLevel] = useState<number>(2); // 0: low, 1: medium, 2: high
   const [lifetimeCount, setLifetimeCount] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const speechDetection = useRef<SpeechDetection | null>(null);
   const lastSpeechTime = useRef<number>(0);
   const speechDetected = useRef<boolean>(false);
 
-  // Load saved counts from localStorage on component mount
+  // Load saved counts from IndexedDB on component mount
   useEffect(() => {
-    const savedLifetimeCount = localStorage.getItem('lifetimeCount');
-    const savedTodayCount = localStorage.getItem('todayCount');
-    const savedLastDate = localStorage.getItem('lastCountDate');
+    const loadCounts = async () => {
+      try {
+        setIsLoading(true);
+        const lifetime = await getLifetimeCount();
+        const today = await getTodayCount();
+        
+        setLifetimeCount(lifetime);
+        setTodayCount(today);
+      } catch (error) {
+        console.error("Error loading counts:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    if (savedLifetimeCount) {
-      setLifetimeCount(parseInt(savedLifetimeCount, 10));
-    }
-    
-    const today = new Date().toDateString();
-    if (savedTodayCount && savedLastDate === today) {
-      setTodayCount(parseInt(savedTodayCount, 10));
-    } else {
-      // Reset today's count if it's a new day
-      localStorage.setItem('todayCount', '0');
-      localStorage.setItem('lastCountDate', today);
-    }
+    loadCounts();
   }, []);
 
   useEffect(() => {
@@ -97,23 +98,16 @@ const MantraCounter: React.FC = () => {
             if (now - lastSpeechTime.current > 800) {
               setCurrentCount(count => {
                 const newCount = count + 1;
+                
+                // Update counts in IndexedDB
+                updateMantraCounts(1).then(({ lifetimeCount: newLifetime, todayCount: newToday }) => {
+                  setLifetimeCount(newLifetime);
+                  setTodayCount(newToday);
+                }).catch(console.error);
+                
                 toast.success(`Mantra counted: ${newCount}`, {
                   duration: 1000,
                   style: { background: '#262626', color: '#fcd34d' },
-                });
-                
-                // Update lifetime and today counts
-                setLifetimeCount(prevLifetime => {
-                  const newLifetime = prevLifetime + 1;
-                  localStorage.setItem('lifetimeCount', newLifetime.toString());
-                  return newLifetime;
-                });
-                
-                setTodayCount(prevToday => {
-                  const newToday = prevToday + 1;
-                  localStorage.setItem('todayCount', newToday.toString());
-                  localStorage.setItem('lastCountDate', new Date().toDateString());
-                  return newToday;
                 });
                 
                 return newCount;
@@ -211,6 +205,15 @@ const MantraCounter: React.FC = () => {
     if (sensitivityLevel === 1) return <Volume2 className="w-5 h-5" />;
     return <Volume2 className="w-5 h-5" />;
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto px-4 py-12">
+        <div className="text-amber-400 text-lg mb-4">Loading your spiritual journey...</div>
+        <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   if (targetCount === null) {
     return <TargetSelector onSelectTarget={handleSelectTarget} />;

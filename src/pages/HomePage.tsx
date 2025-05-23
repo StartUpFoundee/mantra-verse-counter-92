@@ -6,39 +6,57 @@ import { isUserLoggedIn, getUserData } from "@/utils/spiritualIdUtils";
 import ThemeToggle from "@/components/ThemeToggle";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import ProfileHeader from "@/components/ProfileHeader";
+import { getLifetimeCount, getTodayCount } from "@/utils/indexedDBUtils";
+import { toast } from "@/components/ui/sonner";
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [lifetimeCount, setLifetimeCount] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isMigrating, setIsMigrating] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check if user is logged in
-    const loggedIn = isUserLoggedIn();
-    setIsLoggedIn(loggedIn);
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        // Check if user is logged in
+        const loggedIn = isUserLoggedIn();
+        setIsLoggedIn(loggedIn);
+        
+        // If logged in, load counts from IndexedDB
+        if (loggedIn) {
+          const lifetime = await getLifetimeCount();
+          const today = await getTodayCount();
+          
+          setLifetimeCount(lifetime);
+          setTodayCount(today);
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast.error("There was an error loading your data. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    // Load saved counts from localStorage on component mount
-    const savedLifetimeCount = localStorage.getItem('lifetimeCount');
-    const savedTodayCount = localStorage.getItem('todayCount');
-    const savedLastDate = localStorage.getItem('lastCountDate');
-    
-    if (savedLifetimeCount) {
-      setLifetimeCount(parseInt(savedLifetimeCount, 10));
-    }
-    
-    const today = new Date().toDateString();
-    if (savedTodayCount && savedLastDate === today) {
-      setTodayCount(parseInt(savedTodayCount, 10));
-    } else {
-      // Reset today's count if it's a new day
-      localStorage.setItem('todayCount', '0');
-      localStorage.setItem('lastCountDate', today);
-    }
+    loadData();
   }, []);
 
   // If user is not logged in, show the welcome screen
   if (!isLoggedIn) {
+    if (isLoading || isMigrating) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white dark:bg-zinc-900">
+          <div className="mb-4 text-amber-400 text-lg">
+            {isMigrating ? "Upgrading your spiritual journey..." : "Loading..."}
+          </div>
+          <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+    
     return (
       <div className="min-h-screen flex flex-col bg-black text-white dark:bg-zinc-900">
         <header className="py-6 text-center relative">
@@ -62,6 +80,15 @@ const HomePage: React.FC = () => {
 
   // Get user data
   const userData = getUserData();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white dark:bg-zinc-900">
+        <div className="mb-4 text-amber-400 text-lg">Loading your spiritual journey...</div>
+        <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white dark:bg-zinc-900">

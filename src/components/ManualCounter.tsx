@@ -5,6 +5,7 @@ import { toast } from "@/components/ui/sonner";
 import CompletionAlert from "@/components/CompletionAlert";
 import TargetSelector from "@/components/TargetSelector";
 import { Hand } from "lucide-react";
+import { getLifetimeCount, getTodayCount, updateMantraCounts } from "@/utils/indexedDBUtils";
 
 const ManualCounter: React.FC = () => {
   const [targetCount, setTargetCount] = useState<number | null>(null);
@@ -12,25 +13,26 @@ const ManualCounter: React.FC = () => {
   const [showCompletionAlert, setShowCompletionAlert] = useState<boolean>(false);
   const [lifetimeCount, setLifetimeCount] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   
-  // Load saved counts from localStorage on component mount
+  // Load saved counts from IndexedDB on component mount
   useEffect(() => {
-    const savedLifetimeCount = localStorage.getItem('lifetimeCount');
-    const savedTodayCount = localStorage.getItem('todayCount');
-    const savedLastDate = localStorage.getItem('lastCountDate');
+    const loadCounts = async () => {
+      try {
+        setIsLoading(true);
+        const lifetime = await getLifetimeCount();
+        const today = await getTodayCount();
+        
+        setLifetimeCount(lifetime);
+        setTodayCount(today);
+      } catch (error) {
+        console.error("Error loading counts:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    if (savedLifetimeCount) {
-      setLifetimeCount(parseInt(savedLifetimeCount, 10));
-    }
-    
-    const today = new Date().toDateString();
-    if (savedTodayCount && savedLastDate === today) {
-      setTodayCount(parseInt(savedTodayCount, 10));
-    } else {
-      // Reset today's count if it's a new day
-      localStorage.setItem('todayCount', '0');
-      localStorage.setItem('lastCountDate', today);
-    }
+    loadCounts();
   }, []);
 
   // Listen for volume and media button events
@@ -64,32 +66,31 @@ const ManualCounter: React.FC = () => {
     setShowCompletionAlert(false);
   };
 
-  const incrementCount = () => {
+  const incrementCount = async () => {
     if (targetCount === null) return;
     
     const newCount = currentCount + 1;
     setCurrentCount(newCount);
     
-    // Update lifetime and today counts
-    const newLifetimeCount = lifetimeCount + 1;
-    const newTodayCount = todayCount + 1;
-    setLifetimeCount(newLifetimeCount);
-    setTodayCount(newTodayCount);
-    
-    // Save to localStorage
-    localStorage.setItem('lifetimeCount', newLifetimeCount.toString());
-    localStorage.setItem('todayCount', newTodayCount.toString());
-    localStorage.setItem('lastCountDate', new Date().toDateString());
-    
-    // Show toast
-    toast.success(`Mantra counted: ${newCount}`, {
-      duration: 1000,
-      style: { background: '#262626', color: '#fcd34d' },
-    });
-    
-    // Check if target is reached
-    if (newCount >= targetCount) {
-      handleCompletion();
+    try {
+      // Update counts in IndexedDB and get updated values
+      const { lifetimeCount: newLifetime, todayCount: newToday } = await updateMantraCounts(1);
+      setLifetimeCount(newLifetime);
+      setTodayCount(newToday);
+      
+      // Show toast
+      toast.success(`Mantra counted: ${newCount}`, {
+        duration: 1000,
+        style: { background: '#262626', color: '#fcd34d' },
+      });
+      
+      // Check if target is reached
+      if (newCount >= targetCount) {
+        handleCompletion();
+      }
+    } catch (error) {
+      console.error("Error updating counts:", error);
+      toast.error("Failed to update count. Please try again.");
     }
   };
   
@@ -111,6 +112,15 @@ const ManualCounter: React.FC = () => {
   };
 
   const progressPercentage = targetCount ? (currentCount / targetCount) * 100 : 0;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto px-4 py-12">
+        <div className="text-amber-400 text-lg mb-4">Loading your spiritual journey...</div>
+        <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   if (targetCount === null) {
     return <TargetSelector onSelectTarget={handleSelectTarget} />;

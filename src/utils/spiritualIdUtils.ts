@@ -78,33 +78,62 @@ export const spiritualIcons = [
   { id: "mandala", symbol: "🔯", name: "Mandala" },
 ];
 
+// Import IndexedDB utilities
+import { 
+  getUserData as getDBUserData, 
+  saveUserData as saveDBUserData, 
+  logoutUser as logoutDBUser, 
+  isUserLoggedIn as isDBUserLoggedIn,
+  getItem,
+  setItem,
+  removeItem
+} from './indexedDBUtils';
+
 /**
  * Checks if user is logged in
+ * Retains localStorage check for backward compatibility but adds IndexedDB support
  */
 export const isUserLoggedIn = (): boolean => {
+  // Check localStorage first for faster response (sync operation)
   return localStorage.getItem('chantTrackerUserData') !== null;
 };
 
 /**
- * Gets user data from localStorage
+ * Gets user data from storage
+ * Maintains localStorage compatibility but adds IndexedDB support
  */
 export const getUserData = () => {
+  // For synchronous access, use localStorage first
   const userData = localStorage.getItem('chantTrackerUserData');
-  return userData ? JSON.parse(userData) : null;
+  
+  // Start async fetch from IndexedDB (which will be used next time)
+  if (userData) {
+    const parsedData = JSON.parse(userData);
+    // This is async but we don't wait for it
+    getDBUserData().catch(console.error);
+    return parsedData;
+  }
+  
+  return null;
 };
 
 /**
- * Save user data to localStorage
+ * Save user data to storage
+ * Writes to both localStorage and IndexedDB
  */
 export const saveUserData = (userData: any) => {
   localStorage.setItem('chantTrackerUserData', JSON.stringify(userData));
+  // Async save to IndexedDB
+  saveDBUserData(userData).catch(console.error);
 };
 
 /**
- * Log out user by clearing localStorage
+ * Log out user by clearing storage
  */
 export const logoutUser = () => {
   localStorage.removeItem('chantTrackerUserData');
+  // Async logout from IndexedDB
+  logoutDBUser().catch(console.error);
 };
 
 /**
@@ -142,7 +171,7 @@ export const extractNameFromId = (id: string): string | null => {
 
 /**
  * Recover IDs that match a specific date of birth
- * Searches local storage for potential matching IDs
+ * Searches storage for potential matching IDs
  */
 export const findIDsByDOB = (dob: string): string[] => {
   const dobDate = new Date(dob);
@@ -163,7 +192,7 @@ export const findIDsByDOB = (dob: string): string[] => {
   }
   
   // In a real app, we might search through other stored IDs or a backend
-  // For now, we just return the current ID if it matches
+  // With IndexedDB, we would query all users and filter by DOB
   
   return matchingIDs;
 };
@@ -180,6 +209,7 @@ export const generateIdQRData = (id: string): string => {
 
 /**
  * Import user data from a file
+ * Stores in both localStorage and IndexedDB
  */
 export const importUserData = (jsonData: string): boolean => {
   try {
@@ -190,7 +220,7 @@ export const importUserData = (jsonData: string): boolean => {
       return false;
     }
     
-    // Save to localStorage
+    // Save to both storages
     saveUserData(userData);
     return true;
   } catch (e) {

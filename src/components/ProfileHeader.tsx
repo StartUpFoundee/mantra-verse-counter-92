@@ -1,13 +1,21 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { getUserData } from "@/utils/spiritualIdUtils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import ProfileDropdown from "./ProfileDropdown";
 
 const ProfileHeader: React.FC = () => {
-  const userData = getUserData();
+  const [userData, setUserData] = useState<any>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  
+  useEffect(() => {
+    // Get user data from localStorage for immediate UI update
+    const localUserData = getUserData();
+    if (localUserData) {
+      setUserData(localUserData);
+    }
+  }, []);
 
   if (!userData) return null;
 
