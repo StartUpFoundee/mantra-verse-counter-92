@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
@@ -41,8 +42,7 @@ const WelcomeScreen: React.FC = () => {
 
   const handleCreateIdentity = () => {
     if (!name || !dob || !selectedIcon) {
-      toast({
-        title: "Missing information",
+      toast("Missing information", {
         description: "Please fill all required fields",
       });
       return;
@@ -70,8 +70,7 @@ const WelcomeScreen: React.FC = () => {
     saveUserData(userData);
 
     // Show success message
-    toast({
-      title: "Identity Created",
+    toast("Identity Created", {
       description: `Your spiritual ID is ${userID}. Please remember it.`,
     });
 
@@ -81,8 +80,7 @@ const WelcomeScreen: React.FC = () => {
 
   const handleExistingIdLogin = () => {
     if (!existingId) {
-      toast({
-        title: "Missing ID",
+      toast("Missing ID", {
         description: "Please enter your spiritual ID",
       });
       return;
@@ -93,8 +91,7 @@ const WelcomeScreen: React.FC = () => {
     
     // Validate ID format
     if (!validateUserID(correctedId)) {
-      toast({
-        title: "Invalid ID Format",
+      toast("Invalid ID Format", {
         description: "Please enter a valid spiritual ID (format: DDMMYYYY_XXXX)",
       });
       return;
@@ -119,8 +116,7 @@ const WelcomeScreen: React.FC = () => {
 
   const handleRecoverySearch = () => {
     if (!recoveryDob) {
-      toast({
-        title: "Date Required",
+      toast("Date Required", {
         description: "Please enter your date of birth",
       });
       return;
@@ -132,8 +128,7 @@ const WelcomeScreen: React.FC = () => {
     setIsRecoverySearched(true);
     
     if (foundIds.length === 0) {
-      toast({
-        title: "No IDs Found",
+      toast("No IDs Found", {
         description: "No spiritual IDs found matching this date of birth",
       });
     }
@@ -143,8 +138,7 @@ const WelcomeScreen: React.FC = () => {
     setExistingId(id);
     setActiveTab("login");
     
-    toast({
-      title: "ID Selected",
+    toast("ID Selected", {
       description: "You can now log in with this spiritual ID",
     });
   };
