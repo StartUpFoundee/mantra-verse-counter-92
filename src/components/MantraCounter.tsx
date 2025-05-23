@@ -14,7 +14,7 @@ const MantraCounter: React.FC = () => {
   const [micPermission, setMicPermission] = useState<boolean | null>(null);
   const [showCompletionAlert, setShowCompletionAlert] = useState<boolean>(false);
   const [audioLevel, setAudioLevel] = useState<number>(0);
-  const [sensitivityLevel, setSensitivityLevel] = useState<number>(2); // 0: low, 1: medium, 2: high
+  const [sensitivityLevel, setSensitivityLevel] = useState<number>(2); // Start with high sensitivity
   const [lifetimeCount, setLifetimeCount] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -83,7 +83,7 @@ const MantraCounter: React.FC = () => {
       if (!granted) return;
     }
     
-    const minDecibelsSettings = [-50, -60, -70]; // low, medium, high
+    const minDecibelsSettings = [-45, -65, -80]; // Made more sensitive across all levels
     
     if (!speechDetection.current) {
       speechDetection.current = new SpeechDetection({
@@ -95,7 +95,7 @@ const MantraCounter: React.FC = () => {
         onSpeechEnded: () => {
           if (speechDetected.current) {
             const now = Date.now();
-            if (now - lastSpeechTime.current > 800) {
+            if (now - lastSpeechTime.current > 600) { // Reduced delay
               setCurrentCount(count => {
                 const newCount = count + 1;
                 

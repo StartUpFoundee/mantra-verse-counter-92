@@ -21,7 +21,7 @@ export class SpeechDetection {
   private consecutiveSilenceFrames = 0;
   private consecutiveSpeechFrames = 0;
 
-  constructor({ onSpeechDetected, onSpeechEnded, minDecibels = -65 }: SpeechDetectionProps) {
+  constructor({ onSpeechDetected, onSpeechEnded, minDecibels = -75 }: SpeechDetectionProps) {
     this.onSpeechDetected = onSpeechDetected;
     this.onSpeechEnded = onSpeechEnded;
     this.minDecibels = minDecibels;
@@ -34,15 +34,16 @@ export class SpeechDetection {
       this.audioContext = new AudioContext();
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.minDecibels = this.minDecibels;
-      this.analyser.fftSize = 2048;
-      this.analyser.smoothingTimeConstant = 0.9;
+      this.analyser.fftSize = 512; // Reduced for better performance
+      this.analyser.smoothingTimeConstant = 0.3; // Less smoothing for better responsiveness
       
-      // Request microphone access with enhanced settings
+      // Request microphone access with enhanced settings for human voice
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { 
           echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          noiseSuppression: false, // Disabled to catch quieter voices
+          autoGainControl: true,
+          sampleRate: 44100
         } 
       });
       
@@ -52,7 +53,7 @@ export class SpeechDetection {
       this.isListening = true;
       this.detectSound();
       
-      console.log("Speech detection started successfully");
+      console.log("Speech detection started with enhanced sensitivity");
       return true;
     } catch (error) {
       console.error("Error starting speech detection:", error);
@@ -102,13 +103,13 @@ export class SpeechDetection {
     const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
     this.analyser.getByteFrequencyData(dataArray);
 
-    // Calculate volume level - enhanced algorithm
-    const sortedData = [...dataArray].sort((a, b) => b - a);
-    const topFrequencies = sortedData.slice(0, Math.floor(dataArray.length * 0.3));
-    const average = topFrequencies.reduce((acc, val) => acc + val, 0) / topFrequencies.length;
+    // Enhanced algorithm for human voice detection
+    // Focus on human voice frequency range (85Hz - 3000Hz approximately)
+    const humanVoiceRange = dataArray.slice(5, 100); // Approximate range for human voice
+    const average = humanVoiceRange.reduce((acc, val) => acc + val, 0) / humanVoiceRange.length;
     
-    // Lower threshold to make it much more sensitive
-    const threshold = 5;
+    // Much lower threshold for better sensitivity
+    const threshold = 2;
     const now = Date.now();
     
     if (average > threshold) {
@@ -116,11 +117,11 @@ export class SpeechDetection {
       this.consecutiveSpeechFrames++;
       this.consecutiveSilenceFrames = 0;
       
-      // Only trigger speech detection after fewer consecutive frames to be more responsive
-      if (this.consecutiveSpeechFrames > 2 && !this.isSpeaking) {
+      // Trigger speech detection immediately for better responsiveness
+      if (this.consecutiveSpeechFrames > 1 && !this.isSpeaking) {
         this.isSpeaking = true;
         this.onSpeechDetected();
-        console.log("Speech detected", average);
+        console.log("Speech detected with average:", average);
       }
       
       this.lastSpeechTime = now;
@@ -135,8 +136,8 @@ export class SpeechDetection {
       this.consecutiveSpeechFrames = 0;
       
       // Consider speech ended after consistent silence
-      if (this.isSpeaking && this.consecutiveSilenceFrames > 25) {
-        if (now - this.lastSpeechTime > 800) {
+      if (this.isSpeaking && this.consecutiveSilenceFrames > 15) {
+        if (now - this.lastSpeechTime > 500) { // Reduced silence duration
           this.isSpeaking = false;
           this.onSpeechEnded();
           console.log("Speech ended after", now - this.lastSpeechTime, "ms of silence");

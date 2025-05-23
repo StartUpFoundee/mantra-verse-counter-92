@@ -65,6 +65,7 @@ const ActiveDaysPage: React.FC = () => {
         isToday,
         dayOfWeek: currentDay.getDay(),
         month: currentDay.getMonth(),
+        dayOfMonth: currentDay.getDate(),
         displayDate: new Date(currentDay)
       });
       
@@ -83,9 +84,9 @@ const ActiveDaysPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white dark:bg-zinc-900 p-4">
+    <div className="min-h-screen bg-black text-white dark:bg-zinc-900 p-4 lg:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <Button
           onClick={() => navigate('/')}
           variant="ghost"
@@ -94,130 +95,136 @@ const ActiveDaysPage: React.FC = () => {
           <ArrowLeft className="w-5 h-5 mr-2" />
           Back to Home
         </Button>
-        <h1 className="text-2xl font-bold text-amber-400">Active Days</h1>
+        <h1 className="text-3xl lg:text-4xl font-bold text-amber-400">Active Days</h1>
         <div className="w-24"></div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-6xl mx-auto">
         <Card className="bg-zinc-800/50 border-amber-600/20 text-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-amber-400">
-              <Flame className="w-5 h-5" />
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-amber-400 text-xl">
+              <Flame className="w-6 h-6" />
               Current Streak
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white">{streakData.currentStreak}</div>
-            <p className="text-gray-400 text-sm">days in a row</p>
+            <div className="text-4xl font-bold text-white mb-2">{streakData.currentStreak}</div>
+            <p className="text-gray-400">days in a row</p>
           </CardContent>
         </Card>
 
         <Card className="bg-zinc-800/50 border-amber-600/20 text-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-amber-400">
-              <TrendingUp className="w-5 h-5" />
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-amber-400 text-xl">
+              <TrendingUp className="w-6 h-6" />
               Max Streak
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white">{streakData.maxStreak}</div>
-            <p className="text-gray-400 text-sm">personal best</p>
+            <div className="text-4xl font-bold text-white mb-2">{streakData.maxStreak}</div>
+            <p className="text-gray-400">personal best</p>
           </CardContent>
         </Card>
 
         <Card className="bg-zinc-800/50 border-amber-600/20 text-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-amber-400">
-              <Target className="w-5 h-5" />
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-amber-400 text-xl">
+              <Target className="w-6 h-6" />
               Total Active Days
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white">{streakData.totalActiveDays}</div>
-            <p className="text-gray-400 text-sm">lifetime practice</p>
+            <div className="text-4xl font-bold text-white mb-2">{streakData.totalActiveDays}</div>
+            <p className="text-gray-400">lifetime practice</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Calendar Grid */}
-      <Card className="bg-zinc-800/50 border-amber-600/20 text-white">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-amber-400">
-            <Calendar className="w-5 h-5" />
-            Activity Calendar
-          </CardTitle>
-          <p className="text-gray-400 text-sm">Your spiritual practice journey over the past year</p>
-        </CardHeader>
-        <CardContent>
-          {/* Weekday Labels */}
-          <div className="flex gap-1 mb-2 ml-8">
-            {weekdays.map((day) => (
-              <div key={day} className="w-3 h-3 text-xs text-gray-400 flex items-center justify-center">
-                {day[0]}
-              </div>
-            ))}
-          </div>
+      <div className="max-w-7xl mx-auto">
+        <Card className="bg-zinc-800/50 border-amber-600/20 text-white">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-amber-400 text-2xl">
+              <Calendar className="w-6 h-6" />
+              Activity Calendar
+            </CardTitle>
+            <p className="text-gray-400">Your spiritual practice journey over the past year</p>
+          </CardHeader>
+          <CardContent className="p-8">
+            {/* Weekday Labels */}
+            <div className="flex gap-2 mb-4 ml-16">
+              {weekdays.map((day) => (
+                <div key={day} className="w-4 h-4 text-sm text-gray-400 flex items-center justify-center">
+                  {day[0]}
+                </div>
+              ))}
+            </div>
 
-          {/* Calendar Grid */}
-          <div className="flex gap-1 overflow-x-auto pb-4">
-            {Array.from({ length: 53 }, (_, weekIndex) => (
-              <div key={weekIndex} className="flex flex-col gap-1">
-                {/* Month label for first week of each month */}
-                {weekIndex === 0 || (calendarDays[weekIndex * 7] && calendarDays[weekIndex * 7].displayDate.getDate() <= 7) ? (
-                  <div className="h-4 text-xs text-gray-400 mb-1">
-                    {calendarDays[weekIndex * 7] && months[calendarDays[weekIndex * 7].month]}
-                  </div>
-                ) : (
-                  <div className="h-4 mb-1"></div>
-                )}
-                
-                {Array.from({ length: 7 }, (_, dayIndex) => {
-                  const dayData = calendarDays[weekIndex * 7 + dayIndex];
-                  if (!dayData) return <div key={dayIndex} className="w-3 h-3"></div>;
+            {/* Calendar Grid */}
+            <div className="flex gap-2 overflow-x-auto pb-6">
+              {Array.from({ length: 53 }, (_, weekIndex) => (
+                <div key={weekIndex} className="flex flex-col gap-2">
+                  {/* Month label for first week of each month */}
+                  {weekIndex === 0 || (calendarDays[weekIndex * 7] && calendarDays[weekIndex * 7].displayDate.getDate() <= 7) ? (
+                    <div className="h-6 text-sm text-gray-400 mb-2 min-w-[60px]">
+                      {calendarDays[weekIndex * 7] && months[calendarDays[weekIndex * 7].month]}
+                    </div>
+                  ) : (
+                    <div className="h-6 mb-2"></div>
+                  )}
                   
-                  return (
-                    <div
-                      key={dayIndex}
-                      className={`w-3 h-3 rounded-sm cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-amber-400 ${
-                        getActivityLevel(dayData.count)
-                      } ${dayData.isToday ? 'ring-2 ring-amber-500' : ''}`}
-                      onMouseEnter={(e) => {
-                        setHoveredDay({ date: dayData.date, count: dayData.count });
-                        handleMouseMove(e);
-                      }}
-                      onMouseMove={handleMouseMove}
-                      onMouseLeave={() => setHoveredDay(null)}
-                    />
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+                  {Array.from({ length: 7 }, (_, dayIndex) => {
+                    const dayData = calendarDays[weekIndex * 7 + dayIndex];
+                    if (!dayData) return <div key={dayIndex} className="w-4 h-4"></div>;
+                    
+                    return (
+                      <div
+                        key={dayIndex}
+                        className={`w-4 h-4 rounded-sm cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-amber-400 relative group ${
+                          getActivityLevel(dayData.count)
+                        } ${dayData.isToday ? 'ring-2 ring-amber-500' : ''} flex items-center justify-center`}
+                        onMouseEnter={(e) => {
+                          setHoveredDay({ date: dayData.date, count: dayData.count });
+                          handleMouseMove(e);
+                        }}
+                        onMouseMove={handleMouseMove}
+                        onMouseLeave={() => setHoveredDay(null)}
+                      >
+                        <span className="text-[8px] font-bold text-gray-700 group-hover:text-white transition-colors">
+                          {dayData.dayOfMonth}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
 
-          {/* Legend */}
-          <div className="flex items-center gap-2 mt-4 text-sm text-gray-400">
-            <span>Less</span>
-            <div className="w-3 h-3 bg-gray-200 dark:bg-gray-800 rounded-sm"></div>
-            <div className="w-3 h-3 bg-green-200 dark:bg-green-900/30 rounded-sm"></div>
-            <div className="w-3 h-3 bg-green-300 dark:bg-green-800/50 rounded-sm"></div>
-            <div className="w-3 h-3 bg-green-400 dark:bg-green-700/70 rounded-sm"></div>
-            <div className="w-3 h-3 bg-green-500 dark:bg-green-600 rounded-sm"></div>
-            <span>More</span>
-          </div>
-        </CardContent>
-      </Card>
+            {/* Legend */}
+            <div className="flex items-center gap-3 mt-6 text-sm text-gray-400">
+              <span>Less</span>
+              <div className="w-4 h-4 bg-gray-200 dark:bg-gray-800 rounded-sm"></div>
+              <div className="w-4 h-4 bg-green-200 dark:bg-green-900/30 rounded-sm"></div>
+              <div className="w-4 h-4 bg-green-300 dark:bg-green-800/50 rounded-sm"></div>
+              <div className="w-4 h-4 bg-green-400 dark:bg-green-700/70 rounded-sm"></div>
+              <div className="w-4 h-4 bg-green-500 dark:bg-green-600 rounded-sm"></div>
+              <span>More</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Tooltip */}
       {hoveredDay && (
         <div
-          className="fixed z-50 bg-zinc-900 border border-amber-600/30 rounded-lg px-3 py-2 text-sm pointer-events-none"
+          className="fixed z-50 bg-zinc-900 border border-amber-600/30 rounded-lg px-4 py-3 text-sm pointer-events-none shadow-xl"
           style={{
             left: mousePosition.x + 10,
-            top: mousePosition.y - 40,
+            top: mousePosition.y - 50,
           }}
         >
-          <div className="text-white font-medium">
+          <div className="text-white font-medium mb-1">
             {new Date(hoveredDay.date).toLocaleDateString('en-US', {
               weekday: 'short',
               month: 'short',
