@@ -2,36 +2,45 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import MantraCounter from "@/components/MantraCounter";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Home } from "lucide-react";
+import { ArrowLeft, Home, Sparkles } from "lucide-react";
 
 const AudioCountPage: React.FC = () => {
   const navigate = useNavigate();
   
   return (
-    <div className="min-h-screen flex flex-col bg-black text-white">
-      <header className="py-4 px-4 flex justify-between items-center">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          className="text-amber-400 hover:bg-zinc-800"
-          onClick={() => navigate('/')}
-        >
-          <ArrowLeft className="h-6 w-6" />
-        </Button>
-        <h1 className="text-xl font-bold text-amber-400">Audio Counter</h1>
-        <Button 
-          variant="ghost" 
-          size="icon"
-          className="text-amber-400 hover:bg-zinc-800"
-          onClick={() => navigate('/')}
-        >
-          <Home className="h-6 w-6" />
-        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
+      {/* Header */}
+      <header className="relative px-4 py-6">
+        <div className="flex items-center justify-between max-w-md mx-auto">
+          <button 
+            onClick={() => navigate('/')}
+            className="w-10 h-10 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-sm border border-gray-200/50 dark:border-zinc-700/50 hover:scale-105 transition-transform"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Audio Counter
+            </h1>
+          </div>
+          
+          <button 
+            onClick={() => navigate('/')}
+            className="w-10 h-10 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-sm border border-gray-200/50 dark:border-zinc-700/50 hover:scale-105 transition-transform"
+          >
+            <Home className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+          </button>
+        </div>
       </header>
       
-      <main className="flex-1 flex items-center justify-center px-4 pb-12">
-        <MantraCounter />
+      <main className="flex-1 px-4 pb-8">
+        <div className="max-w-md mx-auto">
+          <MantraCounter />
+        </div>
       </main>
     </div>
   );
