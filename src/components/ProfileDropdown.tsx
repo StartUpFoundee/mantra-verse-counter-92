@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getUserData, logoutUser } from "@/utils/spiritualIdUtils";
 import { UserRound, Copy, Download, LogOut } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import ModernCard from "./ModernCard";
 
 interface ProfileDropdownProps {
   onClose: () => void;
@@ -84,54 +85,56 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
   return (
     <div 
       ref={dropdownRef}
-      className="absolute top-full right-0 mt-2 w-56 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 z-50"
+      className="absolute top-full right-0 mt-2 w-64 z-50"
     >
-      <div className="px-4 py-3 border-b border-zinc-700">
-        <p className="text-sm font-medium text-amber-400">{userData.name}</p>
-        <p className="text-xs text-gray-400 mt-1">ID: {userData.id}</p>
-      </div>
-      
-      <ul>
-        <li>
-          {showIdCopy ? (
-            <div className="px-4 py-2 flex items-center justify-between">
-              <p className="text-sm text-amber-400 truncate">{userData?.id}</p>
+      <ModernCard className="p-0 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-xl border-amber-200/50 dark:border-amber-700/50 shadow-2xl" gradient>
+        <div className="px-4 py-3 border-b border-amber-200/30 dark:border-amber-700/30">
+          <p className="text-sm font-medium text-amber-600 dark:text-amber-400">{userData.name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">ID: {userData.id}</p>
+        </div>
+        
+        <ul className="py-1">
+          <li>
+            {showIdCopy ? (
+              <div className="px-4 py-3 flex items-center justify-between">
+                <p className="text-sm text-amber-600 dark:text-amber-400 truncate">{userData?.id}</p>
+                <button 
+                  className="ml-2 p-1.5 rounded-full hover:bg-amber-500/20 transition-colors duration-200"
+                  onClick={handleCopyId}
+                >
+                  <Copy size={16} className="text-amber-600 dark:text-amber-400" />
+                </button>
+              </div>
+            ) : (
               <button 
-                className="ml-2 p-1 rounded-full hover:bg-zinc-700"
-                onClick={handleCopyId}
+                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-colors duration-200"
+                onClick={toggleIdCopy}
               >
-                <Copy size={16} className="text-gray-400" />
+                <UserRound size={16} className="mr-3 text-amber-600 dark:text-amber-400" />
+                View ID
               </button>
-            </div>
-          ) : (
+            )}
+          </li>
+          <li>
             <button 
-              className="flex items-center w-full px-4 py-2 text-sm text-gray-300 hover:bg-zinc-700"
-              onClick={toggleIdCopy}
+              className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-colors duration-200"
+              onClick={handleExportIdentity}
             >
-              <UserRound size={16} className="mr-2 text-gray-400" />
-              View ID
+              <Download size={16} className="mr-3 text-amber-600 dark:text-amber-400" />
+              Save Identity
             </button>
-          )}
-        </li>
-        <li>
-          <button 
-            className="flex items-center w-full px-4 py-2 text-sm text-gray-300 hover:bg-zinc-700"
-            onClick={handleExportIdentity}
-          >
-            <Download size={16} className="mr-2 text-gray-400" />
-            Save Identity
-          </button>
-        </li>
-        <li className="border-t border-zinc-700 mt-1">
-          <button 
-            className="flex items-center w-full px-4 py-2 text-sm text-gray-300 hover:bg-zinc-700"
-            onClick={handleLogout}
-          >
-            <LogOut size={16} className="mr-2 text-gray-400" />
-            Logout
-          </button>
-        </li>
-      </ul>
+          </li>
+          <li className="border-t border-amber-200/30 dark:border-amber-700/30 mt-1">
+            <button 
+              className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-red-50/50 dark:hover:bg-red-900/20 transition-colors duration-200"
+              onClick={handleLogout}
+            >
+              <LogOut size={16} className="mr-3 text-red-500 dark:text-red-400" />
+              <span className="text-red-600 dark:text-red-400">Logout</span>
+            </button>
+          </li>
+        </ul>
+      </ModernCard>
     </div>
   );
 };
