@@ -39,7 +39,7 @@ const AudioCountPage: React.FC = () => {
       </header>
       
       <main className="flex-1 px-4 lg:px-8 pb-8 lg:pb-12">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto flex justify-center">
           <MantraCounter />
         </div>
       </main>

@@ -1,6 +1,6 @@
-
 /**
- * Generates a unique user ID based on DOB and timestamp
+ * Generates a unique user ID based on DOB, timestamp, and random component
+ * Ensures uniqueness even for users with same DOB
  */
 export const generateUserID = (dob: string): string => {
   // Extract date components from the date picker value
@@ -12,21 +12,26 @@ export const generateUserID = (dob: string): string => {
   // Format DOB part as DDMMYYYY
   const dobPart = `${day}${month}${year}`;
   
-  // Get current timestamp and take last 4 digits
+  // Get current timestamp and take last 6 digits for better uniqueness
   const timestamp = new Date().getTime().toString();
-  const uniquePart = timestamp.slice(-4);
+  const timePart = timestamp.slice(-6);
   
-  // Combine to create final ID
-  return `${dobPart}_${uniquePart}`;
+  // Add random component for extra uniqueness
+  const randomPart = Math.floor(Math.random() * 999).toString().padStart(3, '0');
+  
+  // Combine to create final ID: DDMMYYYY_TTTTTT_RRR
+  return `${dobPart}_${timePart}_${randomPart}`;
 };
 
 /**
- * Validates if the provided ID follows the spiritual ID format
+ * Validates if the provided ID follows the enhanced spiritual ID format
  */
 export const validateUserID = (id: string): boolean => {
-  // Validate format: DDMMYYYY_XXXX
-  const regex = /^\d{8}_\d{4}$/;
-  return regex.test(id);
+  // Validate format: DDMMYYYY_TTTTTT_RRR (enhanced format)
+  const enhancedRegex = /^\d{8}_\d{6}_\d{3}$/;
+  // Also support old format: DDMMYYYY_XXXX for backward compatibility
+  const oldRegex = /^\d{8}_\d{4}$/;
+  return enhancedRegex.test(id) || oldRegex.test(id);
 };
 
 /**
@@ -36,16 +41,22 @@ export const correctUserID = (id: string): string => {
   // Remove spaces
   let corrected = id.trim();
   
-  // Add underscore if missing but seems like a valid ID otherwise
-  if (!corrected.includes('_') && corrected.length === 12) {
-    corrected = `${corrected.substring(0, 8)}_${corrected.substring(8)}`;
+  // Handle both old and new formats
+  if (!corrected.includes('_')) {
+    // Try to format as new format if length matches
+    if (corrected.length === 17) {
+      corrected = `${corrected.substring(0, 8)}_${corrected.substring(8, 14)}_${corrected.substring(14)}`;
+    } else if (corrected.length === 12) {
+      // Old format
+      corrected = `${corrected.substring(0, 8)}_${corrected.substring(8)}`;
+    }
   }
   
   return corrected;
 };
 
 /**
- * Extract date of birth from a user ID
+ * Extract date of birth from a user ID (works with both old and new formats)
  */
 export const extractDOBFromID = (id: string): string | null => {
   if (!id.includes('_')) return null;
@@ -137,13 +148,13 @@ export const logoutUser = () => {
 };
 
 /**
- * Generate a spiritual ID based on name
- * This is for compatibility with the SpiritualIdPage
+ * Generate a spiritual ID based on name (enhanced uniqueness)
  */
 export const generateSpiritualId = (name: string): string => {
   const timestamp = new Date().getTime().toString();
-  const uniquePart = timestamp.slice(-4);
-  return `OM${name}${uniquePart}`;
+  const timePart = timestamp.slice(-6);
+  const randomPart = Math.floor(Math.random() * 999).toString().padStart(3, '0');
+  return `OM${name}${timePart}_${randomPart}`;
 };
 
 /**

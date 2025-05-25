@@ -1,3 +1,4 @@
+
 interface SpeechDetectionProps {
   onSpeechDetected: () => void;
   onSpeechEnded: () => void;
@@ -20,12 +21,15 @@ export class SpeechDetection {
   private consecutiveSilenceFrames = 0;
   private consecutiveSpeechFrames = 0;
   private speechStartTime = 0;
-  private minMantraDuration = 1000; // Minimum 1 second for a mantra
-  private silenceGapRequired = 1500; // 1.5 seconds of silence between mantras
+  private minMantraDuration = 800; // Minimum 0.8 seconds for a mantra
+  private silenceGapRequired = 1200; // 1.2 seconds of silence between mantras
   private isInMantra = false;
   private mantraBuffer: number[] = [];
+  private backgroundNoiseLevel = 0;
+  private noiseCalibrationFrames = 0;
+  private isCalibrated = false;
 
-  constructor({ onSpeechDetected, onSpeechEnded, minDecibels = -85 }: SpeechDetectionProps) {
+  constructor({ onSpeechDetected, onSpeechEnded, minDecibels = -75 }: SpeechDetectionProps) {
     this.onSpeechDetected = onSpeechDetected;
     this.onSpeechEnded = onSpeechEnded;
     this.minDecibels = minDecibels;
@@ -38,16 +42,16 @@ export class SpeechDetection {
       this.audioContext = new AudioContext();
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.minDecibels = this.minDecibels;
-      this.analyser.fftSize = 2048; // Increased for better frequency resolution
-      this.analyser.smoothingTimeConstant = 0.1; // Very low smoothing for better responsiveness
+      this.analyser.fftSize = 4096; // Higher resolution for better voice detection
+      this.analyser.smoothingTimeConstant = 0.05; // Very low smoothing for responsiveness
       
-      // Enhanced settings for distant voice detection
+      // Enhanced settings for distant voice detection with noise reduction
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { 
-          echoCancellation: false, // Disabled to capture distant voices
-          noiseSuppression: false, // Disabled to avoid filtering out quiet voices
-          autoGainControl: true, // Keep for volume normalization
-          sampleRate: 48000, // Higher sample rate for better quality
+          echoCancellation: false,
+          noiseSuppression: false, 
+          autoGainControl: true,
+          sampleRate: 48000,
           channelCount: 1
         } 
       });
@@ -56,9 +60,12 @@ export class SpeechDetection {
       this.mediaStreamSource.connect(this.analyser);
       
       this.isListening = true;
+      this.backgroundNoiseLevel = 0;
+      this.noiseCalibrationFrames = 0;
+      this.isCalibrated = false;
       this.detectSound();
       
-      console.log("Enhanced speech detection started for distant voice and long mantras");
+      console.log("Enhanced speech detection started with noise calibration");
       return true;
     } catch (error) {
       console.error("Error starting speech detection:", error);
@@ -101,6 +108,7 @@ export class SpeechDetection {
     this.consecutiveSilenceFrames = 0;
     this.consecutiveSpeechFrames = 0;
     this.mantraBuffer = [];
+    this.isCalibrated = false;
     console.log("Speech detection stopped");
   }
 
@@ -110,38 +118,45 @@ export class SpeechDetection {
     const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
     this.analyser.getByteFrequencyData(dataArray);
 
-    // Enhanced human voice detection focusing on fundamental frequencies
-    // Human voice fundamental frequency range: 85Hz - 300Hz (men), 165Hz - 255Hz (women)
-    // But we also check harmonics up to 4000Hz
+    // Enhanced human voice detection with noise calibration
     const sampleRate = this.audioContext!.sampleRate;
     const binSize = sampleRate / this.analyser.fftSize;
     
-    // Calculate frequency bins for human voice
-    const lowFreqBin = Math.floor(80 / binSize); // 80Hz
-    const midFreqBin = Math.floor(500 / binSize); // 500Hz  
-    const highFreqBin = Math.floor(4000 / binSize); // 4000Hz
+    // Focus on human voice frequency ranges
+    const fundamentalBin = Math.floor(85 / binSize); // 85Hz - lowest male voice
+    const upperVoiceBin = Math.floor(1000 / binSize); // 1000Hz - main voice range
+    const harmonicBin = Math.floor(4000 / binSize); // 4000Hz - voice harmonics
     
-    // Analyze different frequency ranges
-    const lowFreqData = dataArray.slice(lowFreqBin, Math.floor(300 / binSize));
-    const midFreqData = dataArray.slice(Math.floor(300 / binSize), Math.floor(1000 / binSize));
-    const highFreqData = dataArray.slice(Math.floor(1000 / binSize), highFreqBin);
+    // Calculate energy in different frequency bands
+    const fundamentalEnergy = this.calculateBandEnergy(dataArray, fundamentalBin, Math.floor(300 / binSize));
+    const voiceEnergy = this.calculateBandEnergy(dataArray, Math.floor(300 / binSize), upperVoiceBin);
+    const harmonicEnergy = this.calculateBandEnergy(dataArray, upperVoiceBin, harmonicBin);
     
-    const lowAvg = lowFreqData.reduce((acc, val) => acc + val, 0) / lowFreqData.length;
-    const midAvg = midFreqData.reduce((acc, val) => acc + val, 0) / midFreqData.length;
-    const highAvg = highFreqData.reduce((acc, val) => acc + val, 0) / highFreqData.length;
+    // Human voice signature: strong fundamental + voice range, moderate harmonics
+    const voiceScore = (fundamentalEnergy * 0.3) + (voiceEnergy * 0.5) + (harmonicEnergy * 0.2);
     
-    // Human voice typically has energy in fundamental + harmonics
-    const voiceScore = (lowAvg * 0.4) + (midAvg * 0.4) + (highAvg * 0.2);
+    // Calibrate background noise for first 60 frames (~2 seconds)
+    if (!this.isCalibrated && this.noiseCalibrationFrames < 60) {
+      this.backgroundNoiseLevel += voiceScore;
+      this.noiseCalibrationFrames++;
+      
+      if (this.noiseCalibrationFrames === 60) {
+        this.backgroundNoiseLevel = this.backgroundNoiseLevel / 60;
+        this.isCalibrated = true;
+        console.log("Background noise calibrated:", this.backgroundNoiseLevel.toFixed(2));
+      }
+    }
+    
+    // Dynamic threshold based on background noise + safety margin
+    const dynamicThreshold = this.isCalibrated 
+      ? Math.max(2.0, this.backgroundNoiseLevel * 2.5) 
+      : 3.0;
     
     // Store recent voice scores for pattern analysis
     this.mantraBuffer.push(voiceScore);
-    if (this.mantraBuffer.length > 30) { // Keep last 30 frames (~1 second at 30fps)
+    if (this.mantraBuffer.length > 45) { // Keep last 1.5 seconds at 30fps
       this.mantraBuffer.shift();
     }
-    
-    // Dynamic threshold based on recent activity
-    const recentAvg = this.mantraBuffer.reduce((a, b) => a + b, 0) / this.mantraBuffer.length;
-    const dynamicThreshold = Math.max(1.5, recentAvg * 0.3); // Adaptive threshold
     
     const now = Date.now();
     
@@ -150,11 +165,12 @@ export class SpeechDetection {
       this.consecutiveSpeechFrames++;
       this.consecutiveSilenceFrames = 0;
       
-      if (!this.isSpeaking) {
+      // Require at least 5 consecutive frames before considering it speech
+      if (this.consecutiveSpeechFrames >= 5 && !this.isSpeaking) {
         this.isSpeaking = true;
         this.speechStartTime = now;
         this.onSpeechDetected();
-        console.log("Mantra speech started, voice score:", voiceScore.toFixed(2));
+        console.log("Mantra speech started, voice score:", voiceScore.toFixed(2), "threshold:", dynamicThreshold.toFixed(2));
       }
       
       this.lastSpeechTime = now;
@@ -190,4 +206,15 @@ export class SpeechDetection {
     
     this.animationFrame = requestAnimationFrame(this.detectSound);
   };
+
+  private calculateBandEnergy(dataArray: Uint8Array, startBin: number, endBin: number): number {
+    let energy = 0;
+    const validEndBin = Math.min(endBin, dataArray.length);
+    
+    for (let i = startBin; i < validEndBin; i++) {
+      energy += dataArray[i];
+    }
+    
+    return energy / (validEndBin - startBin);
+  }
 }
