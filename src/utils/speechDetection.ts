@@ -1,4 +1,3 @@
-
 interface SpeechDetectionProps {
   onSpeechDetected: () => void;
   onSpeechEnded: () => void;
@@ -49,8 +48,7 @@ export class SpeechDetection {
           noiseSuppression: false, // Disabled to avoid filtering out quiet voices
           autoGainControl: true, // Keep for volume normalization
           sampleRate: 48000, // Higher sample rate for better quality
-          channelCount: 1,
-          latency: 0.01 // Low latency for real-time detection
+          channelCount: 1
         } 
       });
       
