@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Plus, Minus, RotateCcw, Target } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import CompletionAlert from "@/components/CompletionAlert";
 import TargetSelector from "@/components/TargetSelector";
-import { Hand } from "lucide-react";
+import CompletionAlert from "@/components/CompletionAlert";
 import { getLifetimeCount, getTodayCount, updateMantraCounts } from "@/utils/indexedDBUtils";
+import { recordDailyActivity } from "@/utils/activityUtils";
 
 const ManualCounter: React.FC = () => {
   const [targetCount, setTargetCount] = useState<number | null>(null);
@@ -14,7 +15,7 @@ const ManualCounter: React.FC = () => {
   const [lifetimeCount, setLifetimeCount] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  
+
   // Load saved counts from IndexedDB on component mount
   useEffect(() => {
     const loadCounts = async () => {
@@ -35,30 +36,16 @@ const ManualCounter: React.FC = () => {
     loadCounts();
   }, []);
 
-  // Listen for volume and media button events
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Volume up/down or media buttons
-      if (
-        event.key === "AudioVolumeUp" || 
-        event.key === "AudioVolumeDown" || 
-        event.key === "MediaPlayPause" ||
-        event.code === "KeyPlus" ||
-        event.code === "KeyMinus" ||
-        event.code === "Space"
-      ) {
-        if (targetCount !== null) {
-          incrementCount();
-          event.preventDefault();
-        }
-      }
-    };
+    // Check if target is reached
+    if (targetCount !== null && currentCount >= targetCount && targetCount > 0) {
+      handleCompletion();
+    }
+  }, [currentCount, targetCount]);
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [targetCount, currentCount]);
+  const handleCompletion = () => {
+    setShowCompletionAlert(true);
+  };
 
   const handleSelectTarget = (target: number) => {
     setTargetCount(target);
@@ -66,43 +53,41 @@ const ManualCounter: React.FC = () => {
     setShowCompletionAlert(false);
   };
 
-  const incrementCount = async () => {
-    if (targetCount === null) return;
-    
+  const handleIncrement = async () => {
     const newCount = currentCount + 1;
     setCurrentCount(newCount);
     
+    // Update counts in IndexedDB and record daily activity
     try {
-      // Update counts in IndexedDB and get updated values
       const { lifetimeCount: newLifetime, todayCount: newToday } = await updateMantraCounts(1);
       setLifetimeCount(newLifetime);
       setTodayCount(newToday);
       
-      // Show toast
-      toast.success(`Mantra counted: ${newCount}`, {
-        duration: 1000,
-        style: { background: '#262626', color: '#fcd34d' },
-      });
+      // Record daily activity for the calendar
+      await recordDailyActivity(1);
       
-      // Check if target is reached
-      if (newCount >= targetCount) {
-        handleCompletion();
-      }
+      toast.success(`Mantra counted: ${newCount} 🕉️`, {
+        duration: 1000,
+      });
     } catch (error) {
       console.error("Error updating counts:", error);
-      toast.error("Failed to update count. Please try again.");
     }
   };
-  
-  const handleCompletion = () => {
-    setShowCompletionAlert(true);
+
+  const handleDecrement = () => {
+    if (currentCount > 0) {
+      setCurrentCount(currentCount - 1);
+      toast.info("Count decreased", {
+        duration: 800,
+      });
+    }
   };
 
   const resetCounter = () => {
     setCurrentCount(0);
     setShowCompletionAlert(false);
     toast.info("Counter reset", {
-      style: { background: '#262626', color: '#fcd34d' }
+      duration: 800,
     });
   };
 
@@ -123,74 +108,86 @@ const ManualCounter: React.FC = () => {
   }
 
   if (targetCount === null) {
-    return <TargetSelector onSelectTarget={handleSelectTarget} />;
+    return (
+      <div className="flex flex-col items-center justify-center w-full">
+        <TargetSelector onSelectTarget={handleSelectTarget} />
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto px-4">
-      <div className="mb-4 text-center w-full">
-        <div className="text-amber-400 text-lg">{currentCount} / {targetCount}</div>
+      <div className="mb-6 text-center w-full">
+        <div className="text-amber-400 text-xl lg:text-2xl mb-2">{currentCount} / {targetCount}</div>
         <div className="text-sm text-gray-400">{Math.round(progressPercentage)}% complete</div>
       </div>
       
-      <div className="stats w-full flex gap-4 mb-6">
-        <div className="stat flex-1 bg-zinc-800/80 rounded-lg p-3 text-center">
-          <h3 className="text-xs text-gray-400">Lifetime</h3>
-          <p className="text-lg font-bold text-amber-400">{lifetimeCount}</p>
+      <div className="stats w-full flex gap-4 mb-8">
+        <div className="stat flex-1 bg-white/60 dark:bg-zinc-800/60 backdrop-blur-sm rounded-xl p-4 text-center shadow-lg">
+          <h3 className="text-xs text-gray-500 dark:text-gray-400">Lifetime</h3>
+          <p className="text-lg lg:text-xl font-bold text-amber-600 dark:text-amber-400">{lifetimeCount}</p>
         </div>
         
-        <div className="stat flex-1 bg-zinc-800/80 rounded-lg p-3 text-center">
-          <h3 className="text-xs text-gray-400">Today</h3>
-          <p className="text-lg font-bold text-amber-400">{todayCount}</p>
+        <div className="stat flex-1 bg-white/60 dark:bg-zinc-800/60 backdrop-blur-sm rounded-xl p-4 text-center shadow-lg">
+          <h3 className="text-xs text-gray-500 dark:text-gray-400">Today</h3>
+          <p className="text-lg lg:text-xl font-bold text-amber-600 dark:text-amber-400">{todayCount}</p>
         </div>
-      </div>
-      
-      {/* Advertisement placeholder */}
-      <div className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 mb-6">
-        <p className="text-center text-gray-400 text-sm">Advertisement</p>
-        <p className="text-center text-gray-500 text-xs">Place your ad here</p>
       </div>
       
       <div className="counter-display relative mb-10">
-        {/* Gold circle */}
-        <div className="relative">
-          <button 
-            onClick={incrementCount}
-            className="w-48 h-48 rounded-full bg-amber-500 flex items-center justify-center hover:bg-amber-600 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-black"
-          >
-            <div className="text-white text-5xl font-bold">
-              <div className="text-3xl mb-2">ॐ</div>
-              <div>{currentCount}</div>
-            </div>
-          </button>
+        <div className="w-56 h-56 lg:w-64 lg:h-64 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-2xl">
+          <div className="text-white text-center">
+            <div className="text-4xl lg:text-5xl mb-3">ॐ</div>
+            <div className="text-4xl lg:text-5xl font-bold">{currentCount}</div>
+          </div>
         </div>
+      </div>
+      
+      <div className="flex items-center gap-6 mb-8">
+        <Button
+          onClick={handleDecrement}
+          variant="outline"
+          size="icon"
+          className="w-14 h-14 lg:w-16 lg:h-16 rounded-full bg-white/60 dark:bg-zinc-800/60 hover:bg-white dark:hover:bg-zinc-700 border-2 border-orange-300 dark:border-orange-600 shadow-lg"
+          disabled={currentCount === 0}
+        >
+          <Minus className="w-6 h-6 lg:w-7 lg:h-7 text-orange-600 dark:text-orange-400" />
+        </Button>
         
-        <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2">
-          <Hand className="w-7 h-7 text-amber-400" />
-        </div>
-      </div>
-      
-      <div className="text-center mb-5 text-sm text-gray-300">
-        <p>Tap the circle, use earphone button, or volume buttons to count</p>
-        <p className="text-xs text-gray-400 mt-1">सर्कल पर टैप करें, ईयरफोन बटन या वॉल्यूम बटन का उपयोग करके गिनें</p>
-      </div>
-      
-      <div className="flex gap-4">
-        <Button 
-          variant="outline" 
-          className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700"
+        <Button
+          onClick={handleIncrement}
+          className="w-20 h-20 lg:w-24 lg:h-24 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-2xl transform hover:scale-105 transition-all duration-200"
+        >
+          <Plus className="w-8 h-8 lg:w-10 lg:h-10" />
+        </Button>
+        
+        <Button
           onClick={resetCounter}
+          variant="outline"
+          size="icon"
+          className="w-14 h-14 lg:w-16 lg:h-16 rounded-full bg-white/60 dark:bg-zinc-800/60 hover:bg-white dark:hover:bg-zinc-700 border-2 border-gray-300 dark:border-gray-600 shadow-lg"
         >
-          Reset Count
-        </Button>
-        <Button 
-          variant="outline" 
-          className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700"
-          onClick={handleReset}
-        >
-          Change Target
+          <RotateCcw className="w-6 h-6 lg:w-7 lg:h-7 text-gray-600 dark:text-gray-400" />
         </Button>
       </div>
+      
+      <div className="text-center mb-6">
+        <p className="text-gray-600 dark:text-gray-300 text-base lg:text-lg">
+          🙏 Tap the + button for each mantra chanted
+        </p>
+        <p className="text-amber-600 dark:text-amber-400 text-sm lg:text-base mt-1">
+          प्रत्येक जाप के लिए + बटन दबाएं
+        </p>
+      </div>
+      
+      <Button 
+        variant="outline" 
+        className="bg-white/60 dark:bg-zinc-800/60 hover:bg-white dark:hover:bg-zinc-700 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-600 backdrop-blur-sm"
+        onClick={handleReset}
+      >
+        <Target className="w-4 h-4 mr-2" />
+        Change Target
+      </Button>
 
       <CompletionAlert 
         isOpen={showCompletionAlert} 

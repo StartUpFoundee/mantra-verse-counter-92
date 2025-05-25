@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { SpeechDetection } from "@/utils/speechDetection";
@@ -7,6 +8,7 @@ import CompletionAlert from "@/components/CompletionAlert";
 import { Mic, MicOff, Volume, Volume2, VolumeX } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { getLifetimeCount, getTodayCount, updateMantraCounts } from "@/utils/indexedDBUtils";
+import { recordDailyActivity } from "@/utils/activityUtils";
 
 const MantraCounter: React.FC = () => {
   const [targetCount, setTargetCount] = useState<number | null>(null);
@@ -15,7 +17,7 @@ const MantraCounter: React.FC = () => {
   const [micPermission, setMicPermission] = useState<boolean | null>(null);
   const [showCompletionAlert, setShowCompletionAlert] = useState<boolean>(false);
   const [audioLevel, setAudioLevel] = useState<number>(0);
-  const [sensitivityLevel, setSensitivityLevel] = useState<number>(2); // Start with high sensitivity
+  const [sensitivityLevel, setSensitivityLevel] = useState<number>(2);
   const [lifetimeCount, setLifetimeCount] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -57,7 +59,6 @@ const MantraCounter: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Check if target is reached
     if (targetCount !== null && currentCount >= targetCount && targetCount > 0) {
       handleCompletion();
     }
@@ -100,50 +101,56 @@ const MantraCounter: React.FC = () => {
       if (!granted) return;
     }
     
-    const minDecibelsSettings = [-70, -80, -90]; // Enhanced sensitivity for distant voices
+    const minDecibelsSettings = [-60, -70, -80];
     
-    if (!speechDetection.current) {
-      speechDetection.current = new SpeechDetection({
-        onSpeechDetected: () => {
-          mantraInProgress.current = true;
-          setAudioLevel(prev => Math.min(100, prev + 30));
-          console.log("Long mantra speech detected");
-        },
-        onSpeechEnded: () => {
-          if (mantraInProgress.current) {
-            const now = Date.now();
-            if (now - lastCountTime.current > 800) { // Prevent rapid counting
-              setCurrentCount(count => {
-                const newCount = count + 1;
-                
-                // Play audio feedback
-                if (audioFeedbackEnabled && audioFeedback.current) {
-                  audioFeedback.current.playCounterFeedback(newCount);
-                }
-                
-                // Update counts in IndexedDB
-                updateMantraCounts(1).then(({ lifetimeCount: newLifetime, todayCount: newToday }) => {
-                  setLifetimeCount(newLifetime);
-                  setTodayCount(newToday);
-                }).catch(console.error);
-                
-                toast.success(`Mantra counted: ${newCount} 🕉️`, {
-                  duration: 1500,
-                  style: { background: '#262626', color: '#fcd34d' },
-                });
-                
-                return newCount;
-              });
-              console.log("Long mantra completed and counted");
-            }
-            lastCountTime.current = now;
-            mantraInProgress.current = false;
-          }
-          setAudioLevel(0);
-        },
-        minDecibels: minDecibelsSettings[sensitivityLevel]
-      });
+    // Always create a fresh speech detection instance
+    if (speechDetection.current) {
+      speechDetection.current.stop();
+      speechDetection.current = null;
     }
+    
+    speechDetection.current = new SpeechDetection({
+      onSpeechDetected: () => {
+        mantraInProgress.current = true;
+        setAudioLevel(prev => Math.min(100, prev + 30));
+        console.log("Mantra speech detected - waiting for completion");
+      },
+      onSpeechEnded: () => {
+        if (mantraInProgress.current) {
+          const now = Date.now();
+          if (now - lastCountTime.current > 500) {
+            setCurrentCount(count => {
+              const newCount = count + 1;
+              
+              // Play audio feedback
+              if (audioFeedbackEnabled && audioFeedback.current) {
+                audioFeedback.current.playCounterFeedback(newCount);
+              }
+              
+              // Update counts in IndexedDB and record daily activity
+              updateMantraCounts(1).then(({ lifetimeCount: newLifetime, todayCount: newToday }) => {
+                setLifetimeCount(newLifetime);
+                setTodayCount(newToday);
+                // Record daily activity for the calendar
+                recordDailyActivity(1);
+              }).catch(console.error);
+              
+              toast.success(`Mantra counted: ${newCount} 🕉️`, {
+                duration: 1500,
+                style: { background: '#262626', color: '#fcd34d' },
+              });
+              
+              return newCount;
+            });
+            console.log("Mantra completed and counted");
+          }
+          lastCountTime.current = now;
+          mantraInProgress.current = false;
+        }
+        setAudioLevel(0);
+      },
+      minDecibels: minDecibelsSettings[sensitivityLevel]
+    });
     
     const started = await speechDetection.current.start();
     if (started) {
@@ -271,7 +278,6 @@ const MantraCounter: React.FC = () => {
         </div>
       </div>
       
-      {/* Advertisement placeholder */}
       <div className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 mb-6">
         <p className="text-center text-gray-400 text-sm">Advertisement</p>
         <p className="text-center text-gray-500 text-xs">Place your ad here</p>
@@ -286,7 +292,6 @@ const MantraCounter: React.FC = () => {
             </div>
           </div>
           
-          {/* Enhanced listening indicator */}
           {isListening && (
             <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-1">
               {[...Array(7)].map((_, i) => (
@@ -324,12 +329,12 @@ const MantraCounter: React.FC = () => {
       <div className="text-center mb-5">
         <p className="text-gray-300 text-sm">
           {isListening 
-            ? "🎙️ Listening for long mantras - Chant with 1.5-2 second pauses"
+            ? "🎙️ Listening for mantras - Speak clearly with pauses"
             : "Press the microphone to start detecting mantras"}
         </p>
         <p className="text-xs text-gray-400 mt-1">
           {isListening
-            ? "लंबे मंत्रों को सुन रहा है - 1.5-2 सेकंड के अंतराल के साथ जाप करें"
+            ? "मंत्रों को सुन रहा है - स्पष्ट रूप से बोलें और रुकें"
             : "मंत्र पहचान शुरू करने के लिए माइक्रोफोन दबाएं"}
         </p>
       </div>
