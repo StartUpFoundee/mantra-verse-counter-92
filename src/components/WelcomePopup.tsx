@@ -5,8 +5,7 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogClose
+  DialogTitle
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
@@ -23,15 +22,18 @@ const WelcomePopup: React.FC = () => {
     const userDataObj = getUserData();
     setUserData(userDataObj);
     
-    // Check if we've shown the popup today already
-    const today = new Date().toDateString();
-    const lastShownDate = localStorage.getItem('welcomePopupLastShown');
+    // Check if this is a page reload by checking if the popup was shown in this session
+    const hasShownInSession = sessionStorage.getItem('welcomePopupShown');
     
-    if (userDataObj) {
-      // Always show the popup on page reload regardless of last shown date
-      setIsOpen(true);
-      // Save that we've shown the popup today
-      localStorage.setItem('welcomePopupLastShown', today);
+    if (userDataObj && !hasShownInSession) {
+      // Only show popup on page reload, not on navigation
+      const isPageReload = !window.performance || performance.navigation.type === performance.navigation.TYPE_RELOAD;
+      
+      if (isPageReload || !hasShownInSession) {
+        setIsOpen(true);
+        // Mark that we've shown the popup in this session
+        sessionStorage.setItem('welcomePopupShown', 'true');
+      }
     }
   }, []);
 
@@ -44,12 +46,12 @@ const WelcomePopup: React.FC = () => {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border-amber-200/50 dark:border-amber-700/50 text-gray-900 dark:text-white max-w-md mx-auto shadow-2xl">
-        <DialogClose 
-          className="absolute right-4 top-4 rounded-full p-2 text-gray-400 hover:bg-amber-500/20 hover:text-amber-600 dark:hover:text-amber-400 transition-all duration-300"
+        <button 
+          className="absolute right-4 top-4 rounded-full p-2 text-gray-400 hover:bg-amber-500/20 hover:text-amber-600 dark:hover:text-amber-400 transition-all duration-300 z-10"
           onClick={handleClose}
         >
           <X className="h-5 w-5" />
-        </DialogClose>
+        </button>
         
         <DialogHeader>
           <div className="flex flex-col items-center text-center pt-6">
