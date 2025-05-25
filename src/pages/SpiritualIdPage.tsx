@@ -1,8 +1,7 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Home, Download, Share2, Printer, QrCode, LogOut } from "lucide-react";
+import { ArrowLeft, Home, Download, Share2, Printer, QrCode, LogOut, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import { 
@@ -12,11 +11,14 @@ import {
   spiritualIcons,
   getUserData,
   saveUserData,
-  logoutUser
+  logoutUser,
+  regenerateUserID,
+  importAccountFromID
 } from "@/utils/spiritualIdUtils";
 import { Label } from "@/components/ui/label";
 import SpiritualIconSelector from "@/components/SpiritualIconSelector";
 import QRCodeModal from "@/components/QRCodeModal";
+import AccountImport from "@/components/AccountImport";
 import ModernCard from "@/components/ModernCard";
 
 const SpiritualIdPage: React.FC = () => {
@@ -29,10 +31,12 @@ const SpiritualIdPage: React.FC = () => {
   const [isNewUser, setIsNewUser] = useState<boolean>(false);
   const [showInputField, setShowInputField] = useState<boolean>(false);
   const [showNameInput, setShowNameInput] = useState<boolean>(false);
+  const [showImport, setShowImport] = useState<boolean>(false);
   const [inputValid, setInputValid] = useState<boolean | null>(null);
   const [selectedIcon, setSelectedIcon] = useState<string>("om");
   const [qrModalOpen, setQrModalOpen] = useState<boolean>(false);
   const [showLoginOptions, setShowLoginOptions] = useState<boolean>(false);
+  const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
 
   useEffect(() => {
     const userData = getUserData();
@@ -74,7 +78,7 @@ const SpiritualIdPage: React.FC = () => {
     setSelectedIcon(iconId);
   };
 
-  const handleNameSubmit = () => {
+  const handleNameSubmit = async () => {
     if (!nameInput.trim()) {
       toast("Missing Name", {
         description: "Please enter your name"
@@ -89,13 +93,8 @@ const SpiritualIdPage: React.FC = () => {
       return;
     }
 
-    const newId = generateUserID(dobInput);
-    setSpiritualId(newId);
-    setSpiritualName(nameInput);
-    
     const iconObj = spiritualIcons.find(i => i.id === selectedIcon);
     const userData = {
-      id: newId,
       name: nameInput,
       dob: dobInput,
       symbol: selectedIcon,
@@ -104,7 +103,10 @@ const SpiritualIdPage: React.FC = () => {
       lastLogin: new Date().toISOString()
     };
     
-    saveUserData(userData);
+    await saveUserData(userData);
+    const finalUserData = getUserData();
+    setSpiritualId(finalUserData.id);
+    setSpiritualName(nameInput);
     
     setShowNameInput(false);
     setShowLoginOptions(false);
@@ -117,11 +119,36 @@ const SpiritualIdPage: React.FC = () => {
     navigate("/");
   };
 
-  const handleSubmitId = () => {
+  const handleSubmitId = async () => {
     const isValid = validateUserID(inputId);
     setInputValid(isValid);
     
     if (isValid) {
+      // Check if it's an embedded ID
+      if (inputId.startsWith('SE_')) {
+        const success = await importAccountFromID(inputId);
+        if (success) {
+          const userData = getUserData();
+          setSpiritualId(userData.id);
+          setSpiritualName(userData.name);
+          setSelectedIcon(userData.symbol || "om");
+          setShowInputField(false);
+          setShowLoginOptions(false);
+          
+          toast("Account Restored", {
+            description: "Your account and chanting progress have been restored!"
+          });
+          
+          navigate("/");
+        } else {
+          toast("Import Failed", {
+            description: "Could not restore account from this ID"
+          });
+        }
+        return;
+      }
+      
+      // Handle regular ID
       const extractedDob = extractDOBFromID(inputId);
       const iconSymbol = spiritualIcons.find(i => i.id === selectedIcon)?.symbol || "🕉️";
       
@@ -134,7 +161,7 @@ const SpiritualIdPage: React.FC = () => {
         lastLogin: new Date().toISOString()
       };
       
-      saveUserData(userData);
+      await saveUserData(userData);
       setSpiritualId(inputId);
       setSpiritualName(userData.name);
       setShowInputField(false);
@@ -149,6 +176,39 @@ const SpiritualIdPage: React.FC = () => {
       toast("Invalid ID", {
         description: "Invalid spiritual ID format"
       });
+    }
+  };
+
+  const handleRegenerateId = async () => {
+    setIsRegenerating(true);
+    try {
+      const newId = await regenerateUserID();
+      setSpiritualId(newId);
+      
+      toast("ID Updated", {
+        description: "Your spiritual ID has been updated with latest data"
+      });
+    } catch (error) {
+      toast("Update Failed", {
+        description: "Could not update your spiritual ID"
+      });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleImportSuccess = () => {
+    const userData = getUserData();
+    if (userData) {
+      setSpiritualId(userData.id);
+      setSpiritualName(userData.name || "");
+      setSelectedIcon(userData.symbol || "om");
+      setIsNewUser(false);
+      setShowLoginOptions(false);
+      setShowImport(false);
+      
+      // Refresh page to show updated data
+      window.location.reload();
     }
   };
 
@@ -170,10 +230,17 @@ const SpiritualIdPage: React.FC = () => {
   const handleShowCreateId = () => {
     setShowNameInput(true);
     setShowLoginOptions(false);
+    setShowImport(false);
   };
 
   const handleShowLoginWithId = () => {
     setShowInputField(true);
+    setShowLoginOptions(false);
+    setShowImport(false);
+  };
+
+  const handleShowImportOption = () => {
+    setShowImport(true);
     setShowLoginOptions(false);
   };
 
@@ -198,6 +265,39 @@ const SpiritualIdPage: React.FC = () => {
 
   const selectedIconObj = spiritualIcons.find(icon => icon.id === selectedIcon);
   const iconSymbol = selectedIconObj ? selectedIconObj.symbol : "🕉️";
+
+  // Import screen
+  if (showImport) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
+        <header className="py-4 lg:py-6 px-4 lg:px-8 flex justify-between items-center">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-amber-600 dark:text-amber-400 hover:bg-white/50 dark:hover:bg-zinc-800/50 w-10 h-10 lg:w-12 lg:h-12"
+            onClick={() => setShowLoginOptions(true)}
+          >
+            <ArrowLeft className="h-5 w-5 lg:h-6 lg:w-6" />
+          </Button>
+          <h1 className="text-xl lg:text-2xl font-bold text-amber-600 dark:text-amber-400">Import Account</h1>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-amber-600 dark:text-amber-400 hover:bg-white/50 dark:hover:bg-zinc-800/50 w-10 h-10 lg:w-12 lg:h-12"
+            onClick={() => navigate('/')}
+          >
+            <Home className="h-5 w-5 lg:h-6 lg:w-6" />
+          </Button>
+        </header>
+        
+        <main className="flex-1 flex flex-col items-center justify-center px-4 lg:px-8 pb-12">
+          <div className="w-full max-w-md lg:max-w-lg">
+            <AccountImport onImportSuccess={handleImportSuccess} />
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // Login options screen
   if (showLoginOptions) {
@@ -246,6 +346,13 @@ const SpiritualIdPage: React.FC = () => {
                   onClick={handleShowLoginWithId}
                 >
                   Login with ID / आईडी से लॉगिन करें
+                </Button>
+                
+                <Button 
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white w-full h-12 lg:h-14 text-lg lg:text-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                  onClick={handleShowImportOption}
+                >
+                  Import Account / खाता आयात करें
                 </Button>
                 
                 <Button 
@@ -458,13 +565,23 @@ const SpiritualIdPage: React.FC = () => {
               <p className="text-gray-600 dark:text-gray-300 text-sm lg:text-base">आपकी आध्यात्मिक पहचान</p>
             </div>
             
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center space-y-4">
               <ModernCard className="p-4 lg:p-6 w-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-amber-300/50 dark:border-amber-600/50">
                 <div className="text-center">
                   <p className="text-gray-600 dark:text-gray-400 text-xs lg:text-sm mb-2">Spiritual ID / आध्यात्मिक आईडी</p>
-                  <p className="text-2xl lg:text-3xl font-bold tracking-wider text-amber-700 dark:text-amber-300">{spiritualId}</p>
+                  <p className="text-lg lg:text-xl font-bold tracking-wider text-amber-700 dark:text-amber-300 break-all">{spiritualId}</p>
                 </div>
               </ModernCard>
+              
+              <Button 
+                onClick={handleRegenerateId}
+                disabled={isRegenerating}
+                variant="outline"
+                className="bg-white/60 dark:bg-zinc-800/60 hover:bg-white dark:hover:bg-zinc-700 text-amber-600 dark:text-amber-400 border-amber-300/50 dark:border-amber-700/50 flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                {isRegenerating ? 'Updating...' : 'Update ID'}
+              </Button>
             </div>
           </ModernCard>
           

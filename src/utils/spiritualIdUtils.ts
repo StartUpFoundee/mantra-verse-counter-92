@@ -1,5 +1,157 @@
+import LZString from 'lz-string';
+
+// Import IndexedDB utilities
+import { 
+  getUserData as getDBUserData, 
+  saveUserData as saveDBUserData, 
+  logoutUser as logoutDBUser, 
+  isUserLoggedIn as isDBUserLoggedIn,
+  getItem,
+  setItem,
+  removeItem,
+  getLifetimeCount,
+  getTodayCount,
+  getAllData,
+  STORES
+} from './indexedDBUtils';
+
 /**
- * Generates a unique user ID based on DOB, timestamp, and random component
+ * Generate a data-embedded spiritual ID that contains all user information
+ */
+export const generateDataEmbeddedID = async (userData: any): Promise<string> => {
+  try {
+    // Get all user's chanting data
+    const lifetimeCount = await getLifetimeCount();
+    const todayCount = await getTodayCount();
+    
+    // Get activity data if available
+    let activityData = [];
+    try {
+      activityData = await getAllData(STORES.activityData);
+    } catch (e) {
+      console.log("No activity data found");
+    }
+
+    // Create comprehensive data object
+    const embeddedData = {
+      id: userData.id || generateUserID(userData.dob),
+      name: userData.name,
+      dob: userData.dob,
+      symbol: userData.symbol,
+      symbolImage: userData.symbolImage,
+      createdAt: userData.createdAt || new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+      chantingStats: {
+        lifetimeCount,
+        todayCount,
+        lastCountDate: localStorage.getItem('lastCountDate') || new Date().toDateString()
+      },
+      activityData: activityData,
+      timestamp: Date.now(),
+      version: "2.0" // Mark as new format
+    };
+
+    // Compress and encode
+    const compressed = LZString.compress(JSON.stringify(embeddedData));
+    const encodedID = btoa(compressed).replace(/[+/=]/g, (match) => {
+      return { '+': '-', '/': '_', '=': '' }[match] || match;
+    });
+    
+    return `SE_${encodedID}`; // SE = Spiritual Embedded
+  } catch (error) {
+    console.error("Error generating data-embedded ID:", error);
+    // Fallback to basic ID
+    return generateUserID(userData.dob);
+  }
+};
+
+/**
+ * Decode data from embedded ID and restore user account
+ */
+export const decodeEmbeddedID = (embeddedId: string): any | null => {
+  try {
+    if (!embeddedId.startsWith('SE_')) {
+      return null; // Not an embedded ID
+    }
+    
+    const encodedData = embeddedId.substring(3); // Remove SE_ prefix
+    const base64Data = encodedData.replace(/[-_]/g, (match) => {
+      return { '-': '+', '_': '/' }[match] || match;
+    });
+    
+    // Add padding if needed
+    const paddedData = base64Data + '='.repeat((4 - base64Data.length % 4) % 4);
+    
+    const compressed = atob(paddedData);
+    const jsonString = LZString.decompress(compressed);
+    
+    if (!jsonString) {
+      throw new Error("Failed to decompress data");
+    }
+    
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error("Error decoding embedded ID:", error);
+    return null;
+  }
+};
+
+/**
+ * Import user account from embedded ID
+ */
+export const importAccountFromID = async (embeddedId: string): Promise<boolean> => {
+  try {
+    const userData = decodeEmbeddedID(embeddedId);
+    
+    if (!userData) {
+      return false;
+    }
+    
+    // Save user data to IndexedDB
+    await saveDBUserData(userData);
+    
+    // Restore chanting stats to localStorage for immediate access
+    if (userData.chantingStats) {
+      localStorage.setItem('lifetimeCount', userData.chantingStats.lifetimeCount?.toString() || '0');
+      localStorage.setItem('todayCount', userData.chantingStats.todayCount?.toString() || '0');
+      localStorage.setItem('lastCountDate', userData.chantingStats.lastCountDate || new Date().toDateString());
+    }
+    
+    // Restore activity data if available
+    if (userData.activityData && Array.isArray(userData.activityData)) {
+      const { storeData } = await import('./indexedDBUtils');
+      for (const activity of userData.activityData) {
+        await storeData(STORES.activityData, activity);
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error importing account:", error);
+    return false;
+  }
+};
+
+/**
+ * Regenerate user ID with latest data
+ */
+export const regenerateUserID = async (): Promise<string> => {
+  const userData = getUserData();
+  if (!userData) {
+    throw new Error("No user data found");
+  }
+  
+  const newId = await generateDataEmbeddedID(userData);
+  
+  // Update user data with new ID
+  const updatedUserData = { ...userData, id: newId, lastLogin: new Date().toISOString() };
+  saveUserData(updatedUserData);
+  
+  return newId;
+};
+
+/**
+ * Generate a unique user ID based on DOB, timestamp, and random component
  * Ensures uniqueness even for users with same DOB
  */
 export const generateUserID = (dob: string): string => {
@@ -24,9 +176,19 @@ export const generateUserID = (dob: string): string => {
 };
 
 /**
- * Validates if the provided ID follows the enhanced spiritual ID format
+ * Validates if the provided ID follows any valid spiritual ID format
  */
 export const validateUserID = (id: string): boolean => {
+  // Validate embedded format
+  if (id.startsWith('SE_')) {
+    try {
+      const decoded = decodeEmbeddedID(id);
+      return decoded !== null;
+    } catch {
+      return false;
+    }
+  }
+  
   // Validate format: DDMMYYYY_TTTTTT_RRR (enhanced format)
   const enhancedRegex = /^\d{8}_\d{6}_\d{3}$/;
   // Also support old format: DDMMYYYY_XXXX for backward compatibility
@@ -40,6 +202,11 @@ export const validateUserID = (id: string): boolean => {
 export const correctUserID = (id: string): string => {
   // Remove spaces
   let corrected = id.trim();
+  
+  // If it's an embedded ID, return as is
+  if (corrected.startsWith('SE_')) {
+    return corrected;
+  }
   
   // Handle both old and new formats
   if (!corrected.includes('_')) {
@@ -59,6 +226,12 @@ export const correctUserID = (id: string): string => {
  * Extract date of birth from a user ID (works with both old and new formats)
  */
 export const extractDOBFromID = (id: string): string | null => {
+  // If it's an embedded ID, extract from decoded data
+  if (id.startsWith('SE_')) {
+    const decoded = decodeEmbeddedID(id);
+    return decoded?.dob || null;
+  }
+  
   if (!id.includes('_')) return null;
   
   const dobPart = id.split('_')[0];
@@ -89,17 +262,6 @@ export const spiritualIcons = [
   { id: "mandala", symbol: "🔯", name: "Mandala" },
 ];
 
-// Import IndexedDB utilities
-import { 
-  getUserData as getDBUserData, 
-  saveUserData as saveDBUserData, 
-  logoutUser as logoutDBUser, 
-  isUserLoggedIn as isDBUserLoggedIn,
-  getItem,
-  setItem,
-  removeItem
-} from './indexedDBUtils';
-
 /**
  * Checks if user is logged in
  * Retains localStorage check for backward compatibility but adds IndexedDB support
@@ -129,13 +291,16 @@ export const getUserData = () => {
 };
 
 /**
- * Save user data to storage
- * Writes to both localStorage and IndexedDB
+ * Save user data to storage and regenerate ID with latest data
  */
-export const saveUserData = (userData: any) => {
-  localStorage.setItem('chantTrackerUserData', JSON.stringify(userData));
+export const saveUserData = async (userData: any) => {
+  // Generate new embedded ID with all current data
+  const embeddedId = await generateDataEmbeddedID(userData);
+  const updatedUserData = { ...userData, id: embeddedId };
+  
+  localStorage.setItem('chantTrackerUserData', JSON.stringify(updatedUserData));
   // Async save to IndexedDB
-  saveDBUserData(userData).catch(console.error);
+  saveDBUserData(updatedUserData).catch(console.error);
 };
 
 /**

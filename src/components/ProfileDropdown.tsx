@@ -2,9 +2,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getUserData, logoutUser } from "@/utils/spiritualIdUtils";
-import { UserRound, Copy, Download, LogOut } from "lucide-react";
+import { UserRound, Copy, Download, LogOut, Settings } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import ModernCard from "./ModernCard";
+import IdManagementDialog from "./IdManagementDialog";
 
 interface ProfileDropdownProps {
   onClose: () => void;
@@ -13,6 +14,7 @@ interface ProfileDropdownProps {
 const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [userData, setUserData] = useState<any>(null);
+  const [showIdDialog, setShowIdDialog] = useState(false);
   const navigate = useNavigate();
   const [showIdCopy, setShowIdCopy] = useState(false);
 
@@ -62,7 +64,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
     const dataStr = JSON.stringify(userData, null, 2);
     const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
     
-    const exportFileDefaultName = `spiritual-identity-${userData.id}.json`;
+    const exportFileDefaultName = `spiritual-identity-${userData.id.substring(0, 8)}.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -80,62 +82,82 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onClose }) => {
     setShowIdCopy(!showIdCopy);
   };
 
+  const handleIdManagement = () => {
+    setShowIdDialog(true);
+  };
+
   if (!userData) return null;
 
   return (
-    <div 
-      ref={dropdownRef}
-      className="absolute top-full right-0 mt-2 w-64 z-50"
-    >
-      <ModernCard className="p-0 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-xl border-amber-200/50 dark:border-amber-700/50 shadow-2xl" gradient>
-        <div className="px-4 py-3 border-b border-amber-200/30 dark:border-amber-700/30">
-          <p className="text-sm font-medium text-amber-600 dark:text-amber-400">{userData.name}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">ID: {userData.id}</p>
-        </div>
-        
-        <ul className="py-1">
-          <li>
-            {showIdCopy ? (
-              <div className="px-4 py-3 flex items-center justify-between">
-                <p className="text-sm text-amber-600 dark:text-amber-400 truncate">{userData?.id}</p>
+    <>
+      <div 
+        ref={dropdownRef}
+        className="absolute top-full right-0 mt-2 w-64 z-50"
+      >
+        <ModernCard className="p-0 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-xl border-amber-200/50 dark:border-amber-700/50 shadow-2xl" gradient>
+          <div className="px-4 py-3 border-b border-amber-200/30 dark:border-amber-700/30">
+            <p className="text-sm font-medium text-amber-600 dark:text-amber-400">{userData.name}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">ID: {userData.id.substring(0, 20)}...</p>
+          </div>
+          
+          <ul className="py-1">
+            <li>
+              {showIdCopy ? (
+                <div className="px-4 py-3 flex items-center justify-between">
+                  <p className="text-sm text-amber-600 dark:text-amber-400 truncate">{userData?.id.substring(0, 15)}...</p>
+                  <button 
+                    className="ml-2 p-1.5 rounded-full hover:bg-amber-500/20 transition-colors duration-200"
+                    onClick={handleCopyId}
+                  >
+                    <Copy size={16} className="text-amber-600 dark:text-amber-400" />
+                  </button>
+                </div>
+              ) : (
                 <button 
-                  className="ml-2 p-1.5 rounded-full hover:bg-amber-500/20 transition-colors duration-200"
-                  onClick={handleCopyId}
+                  className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-colors duration-200"
+                  onClick={toggleIdCopy}
                 >
-                  <Copy size={16} className="text-amber-600 dark:text-amber-400" />
+                  <UserRound size={16} className="mr-3 text-amber-600 dark:text-amber-400" />
+                  View ID
                 </button>
-              </div>
-            ) : (
+              )}
+            </li>
+            <li>
               <button 
                 className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-colors duration-200"
-                onClick={toggleIdCopy}
+                onClick={handleIdManagement}
               >
-                <UserRound size={16} className="mr-3 text-amber-600 dark:text-amber-400" />
-                View ID
+                <Settings size={16} className="mr-3 text-amber-600 dark:text-amber-400" />
+                Manage ID
               </button>
-            )}
-          </li>
-          <li>
-            <button 
-              className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-colors duration-200"
-              onClick={handleExportIdentity}
-            >
-              <Download size={16} className="mr-3 text-amber-600 dark:text-amber-400" />
-              Save Identity
-            </button>
-          </li>
-          <li className="border-t border-amber-200/30 dark:border-amber-700/30 mt-1">
-            <button 
-              className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-red-50/50 dark:hover:bg-red-900/20 transition-colors duration-200"
-              onClick={handleLogout}
-            >
-              <LogOut size={16} className="mr-3 text-red-500 dark:text-red-400" />
-              <span className="text-red-600 dark:text-red-400">Logout</span>
-            </button>
-          </li>
-        </ul>
-      </ModernCard>
-    </div>
+            </li>
+            <li>
+              <button 
+                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-colors duration-200"
+                onClick={handleExportIdentity}
+              >
+                <Download size={16} className="mr-3 text-amber-600 dark:text-amber-400" />
+                Save Identity
+              </button>
+            </li>
+            <li className="border-t border-amber-200/30 dark:border-amber-700/30 mt-1">
+              <button 
+                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-red-50/50 dark:hover:bg-red-900/20 transition-colors duration-200"
+                onClick={handleLogout}
+              >
+                <LogOut size={16} className="mr-3 text-red-500 dark:text-red-400" />
+                <span className="text-red-600 dark:text-red-400">Logout</span>
+              </button>
+            </li>
+          </ul>
+        </ModernCard>
+      </div>
+      
+      <IdManagementDialog 
+        open={showIdDialog} 
+        onOpenChange={setShowIdDialog}
+      />
+    </>
   );
 };
 
