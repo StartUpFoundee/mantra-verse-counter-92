@@ -97,21 +97,30 @@ const initAccountDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     try {
       const request = indexedDB.open(STORAGE_CONFIG.DB_NAME, STORAGE_CONFIG.DB_VERSION);
+      let isResolved = false;
       
       const timeout = setTimeout(() => {
-        request.abort();
-        reject(new Error('IndexedDB initialization timeout'));
+        if (!isResolved) {
+          isResolved = true;
+          reject(new Error('IndexedDB initialization timeout'));
+        }
       }, 5000);
       
       request.onerror = () => {
-        clearTimeout(timeout);
-        console.error('IndexedDB error:', request.error);
-        reject(request.error || new Error('IndexedDB failed to open'));
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          console.error('IndexedDB error:', request.error);
+          reject(request.error || new Error('IndexedDB failed to open'));
+        }
       };
       
       request.onsuccess = () => {
-        clearTimeout(timeout);
-        resolve(request.result);
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          resolve(request.result);
+        }
       };
       
       request.onupgradeneeded = (event) => {
@@ -134,7 +143,10 @@ const initAccountDB = (): Promise<IDBDatabase> => {
           console.log('IndexedDB stores created successfully');
         } catch (upgradeError) {
           console.error('IndexedDB upgrade failed:', upgradeError);
-          reject(upgradeError);
+          if (!isResolved) {
+            isResolved = true;
+            reject(upgradeError);
+          }
         }
       };
     } catch (error) {
