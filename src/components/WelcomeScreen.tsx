@@ -2,16 +2,32 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
 import AccountManager from "./AccountManager";
 import ModernCard from "./ModernCard";
-import { getActiveAccount, getAccountSlots, type UserAccount } from "@/utils/accountStorage";
+import { 
+  getActiveAccount, 
+  getAccountSlots, 
+  getAccountBySlot,
+  setActiveAccountSlot,
+  verifyAccountPassword,
+  type UserAccount,
+  type AccountSlot 
+} from "@/utils/accountStorage";
+import { LogIn, User, Calendar, Shield } from "lucide-react";
 
 const WelcomeScreen: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [accounts, setAccounts] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<AccountSlot[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<AccountSlot | null>(null);
+  const [password, setPassword] = useState("");
+  const [loggingIn, setLoggingIn] = useState(false);
   
   useEffect(() => {
     let isMounted = true;
@@ -22,13 +38,9 @@ const WelcomeScreen: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        // Check for active account first with timeout
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 3000)
-        );
-        
+        // Check for active account first
         try {
-          const activeAccount = await Promise.race([getActiveAccount(), timeoutPromise]) as UserAccount | null;
+          const activeAccount = await getActiveAccount();
           
           if (!isMounted) return;
           
@@ -39,28 +51,37 @@ const WelcomeScreen: React.FC = () => {
           }
         } catch (activeAccountError) {
           console.warn("WelcomeScreen: Active account check failed:", activeAccountError);
-          // Continue to check for other accounts
         }
         
-        // Get all account slots
-        try {
-          const slots = await Promise.race([getAccountSlots(), timeoutPromise]) as any[];
-          
-          if (!isMounted) return;
-          
-          const existingAccounts = slots.filter(slot => slot.userId);
-          console.log("WelcomeScreen: Found", existingAccounts.length, "accounts on device");
-          
-          setAccounts(existingAccounts);
-        } catch (slotsError) {
-          console.warn("WelcomeScreen: Slots check failed:", slotsError);
-          setAccounts([]);
+        // Get all account slots with retry mechanism
+        let slots: AccountSlot[] = [];
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries && isMounted) {
+          try {
+            slots = await getAccountSlots();
+            break;
+          } catch (slotsError) {
+            console.warn(`WelcomeScreen: Slots check failed (attempt ${retryCount + 1}):`, slotsError);
+            retryCount++;
+            if (retryCount < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
         }
+        
+        if (!isMounted) return;
+        
+        const existingAccounts = slots.filter(slot => slot.userId && slot.name);
+        console.log("WelcomeScreen: Found", existingAccounts.length, "accounts on device");
+        
+        setAccounts(existingAccounts);
         
       } catch (error) {
         console.error("WelcomeScreen: Failed to check accounts:", error);
         if (isMounted) {
-          setError('Failed to load accounts. You can continue as guest.');
+          setError('Failed to load accounts. You can create new ones below.');
           setAccounts([]);
         }
       } finally {
@@ -87,13 +108,82 @@ const WelcomeScreen: React.FC = () => {
     navigate('/');
   };
 
+  const handleContinueToAccount = (account: AccountSlot) => {
+    console.log("WelcomeScreen: Continue to account clicked:", account.name);
+    setSelectedAccount(account);
+    setPassword("");
+    setShowPasswordDialog(true);
+  };
+
+  const handlePasswordLogin = async () => {
+    if (!selectedAccount || !password) {
+      toast("Missing Information", {
+        description: "Please enter your password"
+      });
+      return;
+    }
+
+    setLoggingIn(true);
+
+    try {
+      console.log("WelcomeScreen: Attempting login for:", selectedAccount.name);
+      
+      const fullAccount = await getAccountBySlot(selectedAccount.slotId);
+      if (!fullAccount) {
+        toast("Account Error", {
+          description: "Could not load account data"
+        });
+        return;
+      }
+
+      const isValid = await verifyAccountPassword(fullAccount, password);
+      if (!isValid) {
+        toast("Invalid Password", {
+          description: "Please check your password and try again"
+        });
+        return;
+      }
+
+      // Set as active account
+      await setActiveAccountSlot(selectedAccount.slotId);
+      
+      console.log("WelcomeScreen: Login successful for", fullAccount.name);
+      
+      toast("Welcome Back!", {
+        description: `Logged in as ${fullAccount.name}`,
+        icon: <User className="h-4 w-4 text-green-500" />
+      });
+
+      setShowPasswordDialog(false);
+      setPassword("");
+      setSelectedAccount(null);
+      
+      // Navigate to home
+      navigate('/');
+
+    } catch (error) {
+      console.error("WelcomeScreen: Login failed:", error);
+      toast("Login Failed", {
+        description: "Could not log in. Please try again."
+      });
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
   const handleContinueAsGuest = () => {
     console.log("WelcomeScreen: User chose to continue as guest");
     navigate("/");
   };
 
+  const formatLastLogin = (lastLogin: string | null) => {
+    if (!lastLogin) return "Never";
+    const date = new Date(lastLogin);
+    return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   // Error state
-  if (error && !loading) {
+  if (error && !loading && accounts.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-red-50 to-red-100 flex items-center justify-center p-4">
         <ModernCard className="w-full max-w-md mx-auto p-8 text-center">
@@ -149,6 +239,53 @@ const WelcomeScreen: React.FC = () => {
           )}
         </div>
         
+        {/* Display existing accounts with login buttons */}
+        {accounts.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-center mb-6 text-gray-800 dark:text-gray-200">
+              Continue with Your Account
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+              {accounts.map((account) => (
+                <ModernCard
+                  key={account.slotId}
+                  className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800/30 dark:hover:to-indigo-800/30 transition-all duration-300"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                        {account.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">{account.name}</h3>
+                        <p className="text-sm text-gray-500">Account {account.slotId}</p>
+                      </div>
+                      <Shield className="h-5 w-5 text-blue-500" />
+                    </div>
+                    
+                    <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        <span>Created: {new Date(account.createdAt || '').toLocaleDateString()}</span>
+                      </div>
+                      <p>Last Login: {formatLastLogin(account.lastLogin)}</p>
+                    </div>
+                    
+                    <Button
+                      onClick={() => handleContinueToAccount(account)}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                    >
+                      <LogIn className="h-4 w-4 mr-2" />
+                      Continue to this account
+                    </Button>
+                  </div>
+                </ModernCard>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Account Manager for creating new accounts */}
         <AccountManager onAccountSelected={handleAccountSelected} />
         
         <div className="text-center mt-8">
@@ -163,7 +300,7 @@ const WelcomeScreen: React.FC = () => {
         
         <div className="mt-8 pt-6 border-t border-gray-200/50 dark:border-zinc-700/50">
           <p className="text-xs lg:text-sm text-center text-gray-500 dark:text-gray-400">
-            Your accounts are stored securely on your device using advanced encryption. <br/>
+            Your accounts are stored securely on your device using 8-layer data persistence. <br/>
             <button 
               className="text-amber-500 dark:text-amber-400 hover:underline"
               onClick={() => navigate('/identity-guide')}
@@ -173,6 +310,55 @@ const WelcomeScreen: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Password Login Dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={(open) => {
+        setShowPasswordDialog(open);
+        if (!open) {
+          setSelectedAccount(null);
+          setPassword("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Welcome Back!</DialogTitle>
+            <DialogDescription>
+              Enter your password to continue as {selectedAccount?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xl mx-auto mb-2">
+                {selectedAccount?.name?.charAt(0).toUpperCase()}
+              </div>
+              <p className="font-medium">{selectedAccount?.name}</p>
+              <p className="text-sm text-gray-500">Account {selectedAccount?.slotId}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="login-password">Password</Label>
+              <Input
+                id="login-password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && !loggingIn && handlePasswordLogin()}
+              />
+            </div>
+            
+            <Button
+              onClick={handlePasswordLogin}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={loggingIn}
+            >
+              <LogIn className="h-4 w-4 mr-2" />
+              {loggingIn ? "Logging in..." : "Continue"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

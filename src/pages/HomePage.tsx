@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mic, Hand, Infinity, Clock, Sparkles, Calendar } from "lucide-react";
-import { getActiveAccount, type UserAccount } from "@/utils/accountStorage";
+import { getActiveAccount, clearActiveAccount, type UserAccount } from "@/utils/accountStorage";
 import ThemeToggle from "@/components/ThemeToggle";
 import ProfileHeader from "@/components/ProfileHeader";
 import WelcomePopup from "@/components/WelcomePopup";
@@ -29,14 +29,24 @@ const HomePage: React.FC = () => {
         setIsLoading(true);
         setError(null);
         
-        // Check for active account with timeout
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Account check timeout')), 5000)
-        );
+        // Enhanced account checking with multiple attempts
+        let account: UserAccount | null = null;
+        let retryCount = 0;
+        const maxRetries = 3;
         
-        const accountPromise = getActiveAccount();
-        
-        const account = await Promise.race([accountPromise, timeoutPromise]) as UserAccount | null;
+        while (retryCount < maxRetries && !account && isMounted) {
+          try {
+            account = await getActiveAccount();
+            if (account) break;
+          } catch (error) {
+            console.warn(`HomePage: Account check attempt ${retryCount + 1} failed:`, error);
+          }
+          
+          retryCount++;
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
         
         if (!isMounted) return;
         
@@ -73,7 +83,6 @@ const HomePage: React.FC = () => {
         console.error("HomePage: Critical error:", error);
         if (isMounted) {
           setError(error instanceof Error ? error.message : 'Unknown error');
-          // Don't redirect on error, show error state instead
         }
       } finally {
         if (isMounted) {
@@ -84,8 +93,18 @@ const HomePage: React.FC = () => {
     
     loadData();
     
+    // Listen for logout events
+    const handleLogout = () => {
+      console.log("HomePage: Logout event received, redirecting to welcome");
+      setActiveAccount(null);
+      navigate('/welcome');
+    };
+    
+    window.addEventListener('user-logout', handleLogout);
+    
     return () => {
       isMounted = false;
+      window.removeEventListener('user-logout', handleLogout);
     };
   }, [navigate]);
 

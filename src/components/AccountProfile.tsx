@@ -14,6 +14,7 @@ import {
   hashPassword,
   type UserAccount 
 } from "@/utils/accountStorage";
+import { handleLogout } from "./LogoutHandler";
 
 interface AccountProfileProps {
   account: UserAccount;
@@ -124,20 +125,13 @@ const AccountProfile: React.FC<AccountProfileProps> = ({ account, onLogout }) =>
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogoutClick = async () => {
     try {
-      // Clear session data
-      sessionStorage.removeItem('activeAccountSlot');
-      window.name = '';
-      
-      toast("Logged Out", {
-        description: "You have been logged out successfully",
-        icon: <LogOut className="h-4 w-4 text-blue-500" />
-      });
-
+      console.log("AccountProfile: Logout button clicked");
+      await handleLogout();
       onLogout();
     } catch (error) {
-      console.error("Logout failed:", error);
+      console.error("AccountProfile: Logout failed:", error);
       onLogout(); // Still proceed with logout
     }
   };
@@ -261,7 +255,7 @@ const AccountProfile: React.FC<AccountProfileProps> = ({ account, onLogout }) =>
             </Button>
             
             <Button
-              onClick={handleLogout}
+              onClick={handleLogoutClick}
               variant="outline"
               className="flex items-center space-x-2 text-red-600 hover:text-red-700 hover:bg-red-50"
             >

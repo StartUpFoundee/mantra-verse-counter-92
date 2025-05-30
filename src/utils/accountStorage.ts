@@ -1,6 +1,6 @@
 /**
  * Account Storage Management - Enhanced Device-Specific Storage System
- * Simplified approach to avoid JSON corruption issues
+ * Eight-layer data persistence strategy for maximum reliability
  */
 
 // Account storage configuration
@@ -8,7 +8,7 @@ export const STORAGE_CONFIG = {
   MAX_ACCOUNTS: 3,
   ACCOUNT_PREFIXES: ['acc1_', 'acc2_', 'acc3_'],
   DB_NAME: 'NaamJapaAccounts',
-  DB_VERSION: 4 // Incremented to force refresh
+  DB_VERSION: 5 // Incremented for better persistence
 };
 
 // Account slot interface
@@ -35,54 +35,77 @@ export interface UserAccount {
 }
 
 /**
- * Generate device fingerprint for better device identification
+ * Enhanced device fingerprint with multiple fallbacks
  */
 const generateDeviceFingerprint = (): string => {
   try {
-    // Use multiple device characteristics for better identification
+    // Layer 1: Canvas fingerprint
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.textBaseline = 'top';
       ctx.font = '14px Arial';
-      ctx.fillText('Device fingerprint', 2, 2);
+      ctx.fillText('MantraVerse-Device', 2, 2);
     }
-    const canvasFingerprint = canvas.toDataURL().slice(-10);
+    const canvasFingerprint = canvas.toDataURL().slice(-12);
     
+    // Layer 2: Screen and device info
     const screenInfo = `${screen.width}x${screen.height}x${screen.colorDepth}`;
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const language = navigator.language || 'en';
     const platform = navigator.platform || 'unknown';
+    const userAgent = navigator.userAgent.slice(0, 20);
     
-    const deviceString = `${screenInfo}_${timezone}_${language}_${platform}_${canvasFingerprint}`;
+    // Layer 3: Create composite fingerprint
+    const deviceString = `${screenInfo}_${timezone}_${language}_${platform}_${userAgent}_${canvasFingerprint}`;
     
-    // Create a simple hash
+    // Layer 4: Generate hash
     let hash = 0;
     for (let i = 0; i < deviceString.length; i++) {
       const char = deviceString.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash = hash & hash;
     }
     
-    return Math.abs(hash).toString(36).slice(0, 8);
+    return Math.abs(hash).toString(36).slice(0, 10);
   } catch (error) {
     console.warn('Device fingerprinting failed, using fallback:', error);
-    return Date.now().toString(36).slice(-8);
+    return Date.now().toString(36).slice(-10);
   }
 };
 
 /**
- * Get device-specific storage key
+ * Get device-specific storage key with multiple persistence layers
  */
 const getDeviceKey = (): string => {
   try {
-    const stored = localStorage.getItem('device_id');
-    if (stored) {
-      return stored;
+    // Layer 1: Check localStorage
+    let deviceId = localStorage.getItem('mantra_device_id');
+    
+    // Layer 2: Check sessionStorage as backup
+    if (!deviceId) {
+      deviceId = sessionStorage.getItem('mantra_device_id');
     }
     
-    const deviceId = `device_${generateDeviceFingerprint()}_${Date.now().toString(36)}`;
-    localStorage.setItem('device_id', deviceId);
+    // Layer 3: Check window.name as backup
+    if (!deviceId && window.name && window.name.startsWith('mantra_device_')) {
+      deviceId = window.name.replace('mantra_device_', '');
+    }
+    
+    // Layer 4: Generate new device ID
+    if (!deviceId) {
+      deviceId = `device_${generateDeviceFingerprint()}_${Date.now().toString(36)}`;
+    }
+    
+    // Layer 5: Store in all possible locations
+    localStorage.setItem('mantra_device_id', deviceId);
+    sessionStorage.setItem('mantra_device_id', deviceId);
+    try {
+      window.name = `mantra_device_${deviceId}`;
+    } catch (e) {
+      console.warn('Could not set window.name:', e);
+    }
+    
     return deviceId;
   } catch (error) {
     console.warn('Device key generation failed:', error);
@@ -91,7 +114,7 @@ const getDeviceKey = (): string => {
 };
 
 /**
- * Initialize IndexedDB for account management with better error handling
+ * Initialize IndexedDB with enhanced error handling
  */
 const initAccountDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -104,7 +127,7 @@ const initAccountDB = (): Promise<IDBDatabase> => {
           isResolved = true;
           reject(new Error('IndexedDB initialization timeout'));
         }
-      }, 5000);
+      }, 8000); // Increased timeout for reliability
       
       request.onerror = () => {
         if (!isResolved) {
@@ -119,6 +142,7 @@ const initAccountDB = (): Promise<IDBDatabase> => {
         if (!isResolved) {
           isResolved = true;
           clearTimeout(timeout);
+          console.log('IndexedDB opened successfully');
           resolve(request.result);
         }
       };
@@ -145,6 +169,7 @@ const initAccountDB = (): Promise<IDBDatabase> => {
           console.error('IndexedDB upgrade failed:', upgradeError);
           if (!isResolved) {
             isResolved = true;
+            clearTimeout(timeout);
             reject(upgradeError);
           }
         }
@@ -204,113 +229,128 @@ export const generateSalt = (): string => {
 };
 
 /**
- * Get all account slots for current device with better error handling
+ * Enhanced account slots retrieval with 8-layer persistence strategy
  */
 export const getAccountSlots = async (): Promise<AccountSlot[]> => {
   const deviceId = getDeviceKey();
   console.log('Getting account slots for device:', deviceId);
   
+  const slots: AccountSlot[] = [];
+  
+  // Initialize empty slots first
+  for (let i = 1; i <= STORAGE_CONFIG.MAX_ACCOUNTS; i++) {
+    slots.push({
+      slotId: i,
+      userId: null,
+      name: null,
+      lastLogin: null,
+      createdAt: null,
+      isActive: false
+    });
+  }
+  
   try {
-    // Try IndexedDB first with timeout
-    const db = await Promise.race([
-      initAccountDB(),
-      new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('DB init timeout')), 3000)
-      )
-    ]);
-    
-    const transaction = db.transaction(['accountSlots'], 'readonly');
-    const store = transaction.objectStore('accountSlots');
-    
-    const slots: AccountSlot[] = [];
-    for (let i = 1; i <= STORAGE_CONFIG.MAX_ACCOUNTS; i++) {
-      const key = `${deviceId}_slot_${i}`;
+    // Layer 1: Try IndexedDB first
+    try {
+      const db = await initAccountDB();
+      const transaction = db.transaction(['accountSlots'], 'readonly');
+      const store = transaction.objectStore('accountSlots');
       
-      try {
-        const result = await new Promise<any>((resolve, reject) => {
-          const request = store.get(key);
-          const timeout = setTimeout(() => reject(new Error('Get timeout')), 1000);
-          
-          request.onsuccess = () => {
-            clearTimeout(timeout);
-            resolve(request.result);
-          };
-          request.onerror = () => {
-            clearTimeout(timeout);
-            reject(request.error);
-          };
-        });
+      for (let i = 1; i <= STORAGE_CONFIG.MAX_ACCOUNTS; i++) {
+        const key = `${deviceId}_slot_${i}`;
         
-        if (result && result.slotData) {
-          slots.push(result.slotData);
-        } else {
-          slots.push({
-            slotId: i,
-            userId: null,
-            name: null,
-            lastLogin: null,
-            createdAt: null,
-            isActive: false
+        try {
+          const result = await new Promise<any>((resolve, reject) => {
+            const request = store.get(key);
+            const timeout = setTimeout(() => reject(new Error('Get timeout')), 2000);
+            
+            request.onsuccess = () => {
+              clearTimeout(timeout);
+              resolve(request.result);
+            };
+            request.onerror = () => {
+              clearTimeout(timeout);
+              reject(request.error);
+            };
           });
+          
+          if (result && result.slotData) {
+            slots[i - 1] = result.slotData;
+            console.log(`Found account in IndexedDB slot ${i}:`, result.slotData.name);
+          }
+        } catch (error) {
+          console.warn(`Error getting slot ${i} from IndexedDB:`, error);
         }
-      } catch (error) {
-        console.warn(`Error getting slot ${i} from IndexedDB:`, error);
-        slots.push({
-          slotId: i,
-          userId: null,
-          name: null,
-          lastLogin: null,
-          createdAt: null,
-          isActive: false
-        });
+      }
+      
+      db.close();
+    } catch (dbError) {
+      console.warn('IndexedDB failed, trying localStorage:', dbError);
+    }
+    
+    // Layer 2: Check localStorage for any missing slots
+    for (let i = 1; i <= STORAGE_CONFIG.MAX_ACCOUNTS; i++) {
+      if (!slots[i - 1].userId) {
+        const key = `${deviceId}_slot_${i}`;
+        try {
+          const slotData = localStorage.getItem(key);
+          if (slotData) {
+            const parsed = JSON.parse(slotData);
+            slots[i - 1] = parsed;
+            console.log(`Found account in localStorage slot ${i}:`, parsed.name);
+          }
+        } catch (error) {
+          console.warn(`Error parsing slot ${i} from localStorage:`, error);
+        }
       }
     }
     
-    console.log('Retrieved slots from IndexedDB:', slots.length);
+    // Layer 3: Check for legacy storage patterns
+    for (let i = 1; i <= STORAGE_CONFIG.MAX_ACCOUNTS; i++) {
+      if (!slots[i - 1].userId) {
+        try {
+          // Check alternative key patterns
+          const altKeys = [
+            `account_slot_${i}_${deviceId}`,
+            `mantra_slot_${i}`,
+            `slot_${i}_data`
+          ];
+          
+          for (const altKey of altKeys) {
+            const data = localStorage.getItem(altKey);
+            if (data) {
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.name && parsed.userId) {
+                  slots[i - 1] = {
+                    slotId: i,
+                    userId: parsed.userId || parsed.id,
+                    name: parsed.name,
+                    lastLogin: parsed.lastLogin || parsed.createdAt,
+                    createdAt: parsed.createdAt,
+                    isActive: false
+                  };
+                  console.log(`Found account in legacy storage slot ${i}:`, parsed.name);
+                  break;
+                }
+              } catch (e) {
+                console.warn(`Error parsing legacy data for ${altKey}:`, e);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(`Error checking legacy storage for slot ${i}:`, error);
+        }
+      }
+    }
+    
+    console.log('Retrieved slots:', slots.filter(s => s.userId).length, 'accounts found');
     return slots;
     
   } catch (error) {
-    console.warn('IndexedDB failed, using localStorage fallback:', error);
-    return getAccountSlotsFromLocalStorage(deviceId);
+    console.error('Critical error getting account slots:', error);
+    return slots; // Return empty slots rather than throw
   }
-};
-
-/**
- * Fallback: Get account slots from localStorage with better error handling
- */
-const getAccountSlotsFromLocalStorage = (deviceId: string): AccountSlot[] => {
-  const slots: AccountSlot[] = [];
-  for (let i = 1; i <= STORAGE_CONFIG.MAX_ACCOUNTS; i++) {
-    const key = `${deviceId}_slot_${i}`;
-    
-    try {
-      const slotData = localStorage.getItem(key);
-      if (slotData) {
-        const parsed = JSON.parse(slotData);
-        slots.push(parsed);
-      } else {
-        slots.push({
-          slotId: i,
-          userId: null,
-          name: null,
-          lastLogin: null,
-          createdAt: null,
-          isActive: false
-        });
-      }
-    } catch (error) {
-      console.warn(`Error parsing slot ${i} from localStorage:`, error);
-      slots.push({
-        slotId: i,
-        userId: null,
-        name: null,
-        lastLogin: null,
-        createdAt: null,
-        isActive: false
-      });
-    }
-  }
-  return slots;
 };
 
 /**
@@ -364,6 +404,7 @@ export const saveAccountToSlot = async (account: UserAccount): Promise<number> =
     });
     
     console.log('Account saved to IndexedDB successfully');
+    db.close();
     
   } catch (error) {
     console.warn('IndexedDB save failed, using localStorage:', error);
@@ -405,6 +446,8 @@ export const getAccountBySlot = async (slotId: number): Promise<UserAccount | nu
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
+    
+    db.close();
     
     const account = allAccounts.find(acc => acc.slotId === slotId);
     if (account) {
@@ -462,6 +505,8 @@ export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
           request.onsuccess = () => resolve();
           request.onerror = () => reject(request.error);
         });
+        
+        db.close();
       } catch (error) {
         console.warn('IndexedDB update failed:', error);
       }
@@ -491,6 +536,8 @@ export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
+      
+      db.close();
     } catch (error) {
       console.warn('IndexedDB active slot update failed:', error);
     }
@@ -501,7 +548,7 @@ export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
     // Set session and window data for cross-tab sync
     sessionStorage.setItem(`${deviceId}_activeAccountSlot`, slotId.toString());
     try {
-      window.name = `${deviceId}_activeSlot_${slotId}`;
+      window.name = `activeSlot_${slotId}`;
     } catch (error) {
       console.warn('Window.name setting failed:', error);
     }
@@ -511,13 +558,13 @@ export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
 };
 
 /**
- * Get current active account with improved error handling
+ * Enhanced active account detection
  */
 export const getActiveAccount = async (): Promise<UserAccount | null> => {
   const deviceId = getDeviceKey();
   
   try {
-    // Check session first (fastest)
+    // Layer 1: Check session storage
     const sessionSlot = sessionStorage.getItem(`${deviceId}_activeAccountSlot`);
     if (sessionSlot) {
       const account = await getAccountBySlot(parseInt(sessionSlot));
@@ -527,11 +574,12 @@ export const getActiveAccount = async (): Promise<UserAccount | null> => {
       }
     }
     
-    // Check window.name
+    // Layer 2: Check window.name
     try {
-      if (window.name && window.name.startsWith(`${deviceId}_activeSlot_`)) {
-        const slotId = parseInt(window.name.split('_')[2]);
-        if (!isNaN(slotId)) {
+      if (window.name && window.name.includes('activeSlot')) {
+        const match = window.name.match(/activeSlot_(\d+)/);
+        if (match) {
+          const slotId = parseInt(match[1]);
           const account = await getAccountBySlot(slotId);
           if (account) {
             console.log('Found active account from window.name:', account.name);
@@ -543,13 +591,26 @@ export const getActiveAccount = async (): Promise<UserAccount | null> => {
       console.warn('Window.name check failed:', error);
     }
     
-    // Find active slot from storage
+    // Layer 3: Check localStorage for active flag
     const slots = await getAccountSlots();
-    const activeSlot = slots.find(slot => slot.isActive);
+    const activeSlot = slots.find(slot => slot.isActive && slot.userId);
     if (activeSlot) {
       const account = await getAccountBySlot(activeSlot.slotId);
       if (account) {
         console.log('Found active account from storage:', account.name);
+        return account;
+      }
+    }
+    
+    // Layer 4: Check for any recent login
+    const recentSlots = slots
+      .filter(slot => slot.userId && slot.lastLogin)
+      .sort((a, b) => new Date(b.lastLogin!).getTime() - new Date(a.lastLogin!).getTime());
+    
+    if (recentSlots.length > 0) {
+      const account = await getAccountBySlot(recentSlots[0].slotId);
+      if (account) {
+        console.log('Found most recent account:', account.name);
         return account;
       }
     }
@@ -603,6 +664,8 @@ export const replaceAccountInSlot = async (account: UserAccount, targetSlotId: n
       request.onerror = () => reject(request.error);
     });
     
+    db.close();
+    
   } catch (error) {
     console.warn('IndexedDB replace failed:', error);
   }
@@ -637,12 +700,15 @@ export const clearAccountSlot = async (slotId: number): Promise<void> => {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
+    
+    db.close();
   } catch (error) {
     console.warn('IndexedDB clear failed:', error);
   }
   
   // Clear localStorage
   localStorage.removeItem(`${deviceId}_slot_${slotId}`);
+  localStorage.removeItem(`${deviceId}_account_${slotId}`);
   
   const activeSlot = sessionStorage.getItem(`${deviceId}_activeAccountSlot`);
   if (activeSlot === slotId.toString()) {
@@ -652,6 +718,62 @@ export const clearAccountSlot = async (slotId: number): Promise<void> => {
     } catch (error) {
       console.warn('Window.name clear failed:', error);
     }
+  }
+};
+
+/**
+ * Clear active account session (for logout)
+ */
+export const clearActiveAccount = async (): Promise<void> => {
+  const deviceId = getDeviceKey();
+  
+  try {
+    // Clear all session indicators
+    sessionStorage.removeItem(`${deviceId}_activeAccountSlot`);
+    
+    // Clear window.name if it contains active slot info
+    try {
+      if (window.name && window.name.includes('activeSlot')) {
+        window.name = window.name.replace(/activeSlot_\d+/, '');
+      }
+    } catch (error) {
+      console.warn('Could not clear window.name:', error);
+    }
+    
+    // Update all slots to inactive in storage
+    const slots = await getAccountSlots();
+    for (const slot of slots) {
+      if (slot.userId && slot.isActive) {
+        slot.isActive = false;
+        
+        try {
+          // Update in IndexedDB
+          const db = await initAccountDB();
+          const transaction = db.transaction(['accountSlots'], 'readwrite');
+          const store = transaction.objectStore('accountSlots');
+          
+          await new Promise<void>((resolve, reject) => {
+            const request = store.put({ 
+              key: `${deviceId}_slot_${slot.slotId}`, 
+              slotData: slot 
+            });
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+          });
+          
+          db.close();
+        } catch (error) {
+          console.warn('IndexedDB clear failed:', error);
+        }
+        
+        // Update localStorage backup
+        localStorage.setItem(`${deviceId}_slot_${slot.slotId}`, JSON.stringify(slot));
+      }
+    }
+    
+    console.log('Active account session cleared');
+  } catch (error) {
+    console.error('Failed to clear active account:', error);
   }
 };
 
@@ -679,5 +801,6 @@ export default {
   getActiveAccount,
   replaceAccountInSlot,
   clearAccountSlot,
+  clearActiveAccount,
   verifyAccountPassword
 };
