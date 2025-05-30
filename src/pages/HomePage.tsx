@@ -18,61 +18,105 @@ const HomePage: React.FC = () => {
   const [todayCount, setTodayCount] = useState<number>(0);
   const [activeAccount, setActiveAccount] = useState<UserAccount | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [hasCheckedAccount, setHasCheckedAccount] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (hasCheckedAccount) return;
-    
-    console.log("HomePage: Component mounted, starting data load...");
+    let isMounted = true;
     
     const loadData = async () => {
-      setIsLoading(true);
       try {
-        console.log("HomePage: Checking for active account...");
-        const account = await getActiveAccount();
-        console.log("HomePage: Active account result:", account?.name || "None");
+        console.log("HomePage: Starting data load...");
+        setIsLoading(true);
+        setError(null);
+        
+        // Check for active account with timeout
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Account check timeout')), 5000)
+        );
+        
+        const accountPromise = getActiveAccount();
+        
+        const account = await Promise.race([accountPromise, timeoutPromise]) as UserAccount | null;
+        
+        if (!isMounted) return;
+        
+        console.log("HomePage: Account check result:", account?.name || "None");
         
         if (!account) {
-          console.log("HomePage: No active account found, redirecting to welcome");
+          console.log("HomePage: No active account, redirecting to welcome");
           navigate('/welcome');
           return;
         }
         
         setActiveAccount(account);
-        setHasCheckedAccount(true);
         
-        console.log("HomePage: Loading user data for", account.name);
-        
+        // Load count data with fallbacks
         try {
-          const lifetime = await getLifetimeCount();
-          const today = await getTodayCount();
+          const [lifetime, today] = await Promise.all([
+            getLifetimeCount().catch(() => 0),
+            getTodayCount().catch(() => 0)
+          ]);
           
-          setLifetimeCount(lifetime);
-          setTodayCount(today);
-          
-          console.log("HomePage: Data loaded successfully - Lifetime:", lifetime, "Today:", today);
+          if (isMounted) {
+            setLifetimeCount(lifetime);
+            setTodayCount(today);
+          }
         } catch (dataError) {
-          console.error("HomePage: Error loading count data:", dataError);
-          // Continue with default values
-          setLifetimeCount(0);
-          setTodayCount(0);
+          console.warn("HomePage: Error loading count data:", dataError);
+          if (isMounted) {
+            setLifetimeCount(0);
+            setTodayCount(0);
+          }
         }
         
       } catch (error) {
-        console.error("HomePage: Error loading data:", error);
-        setActiveAccount(null);
-        navigate('/welcome');
+        console.error("HomePage: Critical error:", error);
+        if (isMounted) {
+          setError(error instanceof Error ? error.message : 'Unknown error');
+          // Don't redirect on error, show error state instead
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
     
     loadData();
-  }, [navigate, hasCheckedAccount]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
 
-  console.log("HomePage: Rendering - isLoading:", isLoading, "activeAccount:", activeAccount?.name || "None");
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-red-50 via-red-50 to-red-100">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center mx-4">
+          <div className="text-red-500 text-4xl mb-4">⚠️</div>
+          <h1 className="text-xl font-bold text-gray-800 mb-2">Loading Error</h1>
+          <p className="text-gray-600 mb-4 text-sm">{error}</p>
+          <div className="space-y-2">
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
+            >
+              Refresh Page
+            </button>
+            <button 
+              onClick={() => navigate('/welcome')}
+              className="w-full bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
+            >
+              Go to Welcome
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  // Show loading spinner while checking for accounts
+  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
@@ -87,14 +131,19 @@ const HomePage: React.FC = () => {
     );
   }
 
-  // If no active account, this will be handled by the redirect above
+  // If no active account and not loading, this should redirect to welcome
   if (!activeAccount) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+        <div className="text-center">
+          <div className="text-amber-600 text-lg mb-4">Redirecting to welcome...</div>
+          <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        </div>
+      </div>
+    );
   }
 
-  // User is logged in, show the main app
-  console.log("HomePage: Rendering main app for user:", activeAccount.name);
-
+  // Main app content
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
       <WelcomePopup />
@@ -142,7 +191,6 @@ const HomePage: React.FC = () => {
               gradient="bg-gradient-to-br from-emerald-400 to-emerald-600"
             />
             
-            {/* Desktop only - additional stats cards */}
             <div className="hidden lg:block">
               <StatsCard
                 title="This Week"
@@ -169,7 +217,6 @@ const HomePage: React.FC = () => {
             <h2 className="text-lg lg:text-xl xl:text-2xl font-semibold text-gray-900 dark:text-white px-1">Choose Your Practice</h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-              {/* Manual Counter Card */}
               <ActionCard
                 title="Manual Counter"
                 description="Tap screen, earphone or volume buttons"
@@ -179,7 +226,6 @@ const HomePage: React.FC = () => {
                 onClick={() => navigate('/manual')}
               />
               
-              {/* Audio Counter Card */}
               <ActionCard
                 title="Audio Counter"
                 description="Chant with 1 second pauses for auto-count"
@@ -191,7 +237,6 @@ const HomePage: React.FC = () => {
             </div>
           </div>
 
-          {/* Active Days Card */}
           <div className="mt-6 lg:mt-8">
             <ModernCard 
               onClick={() => navigate('/active-days')}

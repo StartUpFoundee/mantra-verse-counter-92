@@ -1,4 +1,3 @@
-
 /**
  * Account Storage Management - Enhanced Device-Specific Storage System
  * Simplified approach to avoid JSON corruption issues
@@ -9,7 +8,7 @@ export const STORAGE_CONFIG = {
   MAX_ACCOUNTS: 3,
   ACCOUNT_PREFIXES: ['acc1_', 'acc2_', 'acc3_'],
   DB_NAME: 'NaamJapaAccounts',
-  DB_VERSION: 3 // Incremented to force refresh
+  DB_VERSION: 4 // Incremented to force refresh
 };
 
 // Account slot interface
@@ -76,48 +75,71 @@ const generateDeviceFingerprint = (): string => {
  * Get device-specific storage key
  */
 const getDeviceKey = (): string => {
-  const stored = localStorage.getItem('device_id');
-  if (stored) {
-    return stored;
+  try {
+    const stored = localStorage.getItem('device_id');
+    if (stored) {
+      return stored;
+    }
+    
+    const deviceId = `device_${generateDeviceFingerprint()}_${Date.now().toString(36)}`;
+    localStorage.setItem('device_id', deviceId);
+    return deviceId;
+  } catch (error) {
+    console.warn('Device key generation failed:', error);
+    return `fallback_${Date.now().toString(36)}`;
   }
-  
-  const deviceId = `device_${generateDeviceFingerprint()}_${Date.now().toString(36)}`;
-  localStorage.setItem('device_id', deviceId);
-  return deviceId;
 };
 
 /**
- * Initialize IndexedDB for account management
+ * Initialize IndexedDB for account management with better error handling
  */
 const initAccountDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(STORAGE_CONFIG.DB_NAME, STORAGE_CONFIG.DB_VERSION);
-    
-    request.onerror = () => {
-      console.error('IndexedDB error:', request.error);
-      reject(request.error);
-    };
-    
-    request.onsuccess = () => resolve(request.result);
-    
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
+    try {
+      const request = indexedDB.open(STORAGE_CONFIG.DB_NAME, STORAGE_CONFIG.DB_VERSION);
       
-      // Clear old stores if they exist
-      const storeNames = ['accountSlots', 'accountData', 'appData'];
-      storeNames.forEach(storeName => {
-        if (db.objectStoreNames.contains(storeName)) {
-          db.deleteObjectStore(storeName);
+      const timeout = setTimeout(() => {
+        request.abort();
+        reject(new Error('IndexedDB initialization timeout'));
+      }, 5000);
+      
+      request.onerror = () => {
+        clearTimeout(timeout);
+        console.error('IndexedDB error:', request.error);
+        reject(request.error || new Error('IndexedDB failed to open'));
+      };
+      
+      request.onsuccess = () => {
+        clearTimeout(timeout);
+        resolve(request.result);
+      };
+      
+      request.onupgradeneeded = (event) => {
+        try {
+          const db = (event.target as IDBOpenDBRequest).result;
+          
+          // Clear old stores if they exist
+          const storeNames = ['accountSlots', 'accountData', 'appData'];
+          storeNames.forEach(storeName => {
+            if (db.objectStoreNames.contains(storeName)) {
+              db.deleteObjectStore(storeName);
+            }
+          });
+          
+          // Create fresh stores
+          db.createObjectStore('accountSlots', { keyPath: 'key' });
+          db.createObjectStore('accountData', { keyPath: 'id' });
+          db.createObjectStore('appData', { keyPath: ['deviceId', 'accountId', 'key'] });
+          
+          console.log('IndexedDB stores created successfully');
+        } catch (upgradeError) {
+          console.error('IndexedDB upgrade failed:', upgradeError);
+          reject(upgradeError);
         }
-      });
-      
-      // Create fresh stores
-      const slotsStore = db.createObjectStore('accountSlots', { keyPath: 'key' });
-      const dataStore = db.createObjectStore('accountData', { keyPath: 'id' });
-      const appStore = db.createObjectStore('appData', { keyPath: ['deviceId', 'accountId', 'key'] });
-      
-      console.log('IndexedDB stores created successfully');
-    };
+      };
+    } catch (error) {
+      reject(error);
+    }
   });
 };
 
@@ -170,15 +192,21 @@ export const generateSalt = (): string => {
 };
 
 /**
- * Get all account slots for current device
+ * Get all account slots for current device with better error handling
  */
 export const getAccountSlots = async (): Promise<AccountSlot[]> => {
   const deviceId = getDeviceKey();
   console.log('Getting account slots for device:', deviceId);
   
   try {
-    // Try IndexedDB first
-    const db = await initAccountDB();
+    // Try IndexedDB first with timeout
+    const db = await Promise.race([
+      initAccountDB(),
+      new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('DB init timeout')), 3000)
+      )
+    ]);
+    
     const transaction = db.transaction(['accountSlots'], 'readonly');
     const store = transaction.objectStore('accountSlots');
     
@@ -189,8 +217,16 @@ export const getAccountSlots = async (): Promise<AccountSlot[]> => {
       try {
         const result = await new Promise<any>((resolve, reject) => {
           const request = store.get(key);
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
+          const timeout = setTimeout(() => reject(new Error('Get timeout')), 1000);
+          
+          request.onsuccess = () => {
+            clearTimeout(timeout);
+            resolve(request.result);
+          };
+          request.onerror = () => {
+            clearTimeout(timeout);
+            reject(request.error);
+          };
         });
         
         if (result && result.slotData) {
@@ -228,18 +264,19 @@ export const getAccountSlots = async (): Promise<AccountSlot[]> => {
 };
 
 /**
- * Fallback: Get account slots from localStorage
+ * Fallback: Get account slots from localStorage with better error handling
  */
 const getAccountSlotsFromLocalStorage = (deviceId: string): AccountSlot[] => {
   const slots: AccountSlot[] = [];
   for (let i = 1; i <= STORAGE_CONFIG.MAX_ACCOUNTS; i++) {
     const key = `${deviceId}_slot_${i}`;
-    const slotData = localStorage.getItem(key);
-    if (slotData) {
-      try {
-        slots.push(JSON.parse(slotData));
-      } catch (error) {
-        console.warn(`Error parsing slot ${i} from localStorage:`, error);
+    
+    try {
+      const slotData = localStorage.getItem(key);
+      if (slotData) {
+        const parsed = JSON.parse(slotData);
+        slots.push(parsed);
+      } else {
         slots.push({
           slotId: i,
           userId: null,
@@ -249,7 +286,8 @@ const getAccountSlotsFromLocalStorage = (deviceId: string): AccountSlot[] => {
           isActive: false
         });
       }
-    } else {
+    } catch (error) {
+      console.warn(`Error parsing slot ${i} from localStorage:`, error);
       slots.push({
         slotId: i,
         userId: null,
@@ -461,48 +499,56 @@ export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
 };
 
 /**
- * Get current active account
+ * Get current active account with improved error handling
  */
 export const getActiveAccount = async (): Promise<UserAccount | null> => {
   const deviceId = getDeviceKey();
   
-  // Check session first (fastest)
-  const sessionSlot = sessionStorage.getItem(`${deviceId}_activeAccountSlot`);
-  if (sessionSlot) {
-    const account = await getAccountBySlot(parseInt(sessionSlot));
-    if (account) {
-      console.log('Found active account from session:', account.name);
-      return account;
-    }
-  }
-  
-  // Check window.name
   try {
-    if (window.name.startsWith(`${deviceId}_activeSlot_`)) {
-      const slotId = parseInt(window.name.split('_')[2]);
-      const account = await getAccountBySlot(slotId);
+    // Check session first (fastest)
+    const sessionSlot = sessionStorage.getItem(`${deviceId}_activeAccountSlot`);
+    if (sessionSlot) {
+      const account = await getAccountBySlot(parseInt(sessionSlot));
       if (account) {
-        console.log('Found active account from window.name:', account.name);
+        console.log('Found active account from session:', account.name);
         return account;
       }
     }
-  } catch (error) {
-    console.warn('Window.name check failed:', error);
-  }
-  
-  // Find active slot from storage
-  const slots = await getAccountSlots();
-  const activeSlot = slots.find(slot => slot.isActive);
-  if (activeSlot) {
-    const account = await getAccountBySlot(activeSlot.slotId);
-    if (account) {
-      console.log('Found active account from storage:', account.name);
-      return account;
+    
+    // Check window.name
+    try {
+      if (window.name && window.name.startsWith(`${deviceId}_activeSlot_`)) {
+        const slotId = parseInt(window.name.split('_')[2]);
+        if (!isNaN(slotId)) {
+          const account = await getAccountBySlot(slotId);
+          if (account) {
+            console.log('Found active account from window.name:', account.name);
+            return account;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Window.name check failed:', error);
     }
+    
+    // Find active slot from storage
+    const slots = await getAccountSlots();
+    const activeSlot = slots.find(slot => slot.isActive);
+    if (activeSlot) {
+      const account = await getAccountBySlot(activeSlot.slotId);
+      if (account) {
+        console.log('Found active account from storage:', account.name);
+        return account;
+      }
+    }
+    
+    console.log('No active account found');
+    return null;
+    
+  } catch (error) {
+    console.error('getActiveAccount failed:', error);
+    return null;
   }
-  
-  console.log('No active account found');
-  return null;
 };
 
 /**

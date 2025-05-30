@@ -11,42 +11,71 @@ const WelcomeScreen: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<any[]>([]);
-  const [hasCheckedAccounts, setHasCheckedAccounts] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    if (hasCheckedAccounts) return;
+    let isMounted = true;
     
-    console.log("WelcomeScreen: Component mounted, checking for accounts...");
-    checkForAccounts();
-  }, [hasCheckedAccounts]);
-
-  const checkForAccounts = async () => {
-    try {
-      console.log("WelcomeScreen: Checking for device accounts...");
-      
-      // First check for active account
-      const activeAccount = await getActiveAccount();
-      if (activeAccount) {
-        console.log("WelcomeScreen: Found active account, redirecting:", activeAccount.name);
-        navigate('/');
-        return;
+    const checkForAccounts = async () => {
+      try {
+        console.log("WelcomeScreen: Checking for device accounts...");
+        setLoading(true);
+        setError(null);
+        
+        // Check for active account first with timeout
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 3000)
+        );
+        
+        try {
+          const activeAccount = await Promise.race([getActiveAccount(), timeoutPromise]) as UserAccount | null;
+          
+          if (!isMounted) return;
+          
+          if (activeAccount) {
+            console.log("WelcomeScreen: Found active account, redirecting:", activeAccount.name);
+            navigate('/');
+            return;
+          }
+        } catch (activeAccountError) {
+          console.warn("WelcomeScreen: Active account check failed:", activeAccountError);
+          // Continue to check for other accounts
+        }
+        
+        // Get all account slots
+        try {
+          const slots = await Promise.race([getAccountSlots(), timeoutPromise]) as any[];
+          
+          if (!isMounted) return;
+          
+          const existingAccounts = slots.filter(slot => slot.userId);
+          console.log("WelcomeScreen: Found", existingAccounts.length, "accounts on device");
+          
+          setAccounts(existingAccounts);
+        } catch (slotsError) {
+          console.warn("WelcomeScreen: Slots check failed:", slotsError);
+          setAccounts([]);
+        }
+        
+      } catch (error) {
+        console.error("WelcomeScreen: Failed to check accounts:", error);
+        if (isMounted) {
+          setError('Failed to load accounts. You can continue as guest.');
+          setAccounts([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-      
-      // Get all account slots for this device
-      const slots = await getAccountSlots();
-      const existingAccounts = slots.filter(slot => slot.userId);
-      console.log("WelcomeScreen: Found", existingAccounts.length, "accounts on device");
-      
-      setAccounts(existingAccounts);
-      setHasCheckedAccounts(true);
-    } catch (error) {
-      console.error("WelcomeScreen: Failed to check accounts:", error);
-      setAccounts([]);
-      setHasCheckedAccounts(true);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    
+    checkForAccounts();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
 
   const handleAccountSelected = (account: UserAccount) => {
     console.log("WelcomeScreen: Account selected, redirecting:", account.name);
@@ -55,7 +84,6 @@ const WelcomeScreen: React.FC = () => {
       description: `Logged in as ${account.name}`,
     });
     
-    // Navigate to home page
     navigate('/');
   };
 
@@ -64,8 +92,28 @@ const WelcomeScreen: React.FC = () => {
     navigate("/");
   };
 
-  console.log("WelcomeScreen: Rendering - loading:", loading, "accounts:", accounts.length);
+  // Error state
+  if (error && !loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-red-50 to-red-100 flex items-center justify-center p-4">
+        <ModernCard className="w-full max-w-md mx-auto p-8 text-center">
+          <div className="text-red-500 text-4xl mb-4">⚠️</div>
+          <h1 className="text-xl font-bold text-gray-800 mb-2">Loading Error</h1>
+          <p className="text-gray-600 mb-4 text-sm">{error}</p>
+          <div className="space-y-2">
+            <Button onClick={() => window.location.reload()} className="w-full">
+              Try Again
+            </Button>
+            <Button onClick={handleContinueAsGuest} variant="outline" className="w-full">
+              Continue as Guest
+            </Button>
+          </div>
+        </ModernCard>
+      </div>
+    );
+  }
 
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800 flex items-center justify-center">
@@ -79,6 +127,7 @@ const WelcomeScreen: React.FC = () => {
     );
   }
 
+  // Main welcome screen
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl mx-auto">
