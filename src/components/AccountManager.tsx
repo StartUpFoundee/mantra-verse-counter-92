@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
-import { User, UserPlus, Copy, Download, Upload, AlertTriangle, Plus, Shield, Sparkles } from "lucide-react";
+import { User, UserPlus, Upload, AlertTriangle, Plus, Shield, Sparkles, LogIn } from "lucide-react";
 import { 
   getAccountSlots, 
   saveAccountToSlot, 
@@ -44,10 +44,11 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
   const [confirmPassword, setConfirmPassword] = useState("");
   const [selectedIcon, setSelectedIcon] = useState("om");
   const [loginPassword, setLoginPassword] = useState("");
-  const [step, setStep] = useState(1); // 1: Name/DOB, 2: Icon, 3: Password
+  const [step, setStep] = useState(1);
   const [importing, setImporting] = useState(false);
   const [importData, setImportData] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [loggingInSlot, setLoggingInSlot] = useState<number | null>(null);
 
   useEffect(() => {
     loadAccountSlots();
@@ -55,10 +56,12 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
 
   const loadAccountSlots = async () => {
     try {
+      console.log("AccountManager: Loading account slots...");
       const accountSlots = await getAccountSlots();
+      console.log("AccountManager: Loaded", accountSlots.length, "slots");
       setSlots(accountSlots);
     } catch (error) {
-      console.error("Failed to load account slots:", error);
+      console.error("AccountManager: Failed to load account slots:", error);
       toast("Error loading accounts", {
         description: "Could not load account data"
       });
@@ -120,7 +123,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
         salt,
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
-        slotId: selectedSlot || 0,
+        slotId: 0,
         userData: {
           lifetimeCount: 0,
           todayCount: 0,
@@ -130,15 +133,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
         }
       };
 
-      let slotId;
-      if (selectedSlot) {
-        newAccount.slotId = selectedSlot;
-        await saveAccountToSlot(newAccount);
-        slotId = selectedSlot;
-      } else {
-        slotId = await saveAccountToSlot(newAccount);
-      }
-      
+      const slotId = await saveAccountToSlot(newAccount);
       await setActiveAccountSlot(slotId);
       
       console.log("AccountManager: Account created successfully, slot:", slotId);
@@ -185,6 +180,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
 
     // Existing account - require password
     setSelectedSlot(slot.slotId);
+    setLoggingInSlot(slot.slotId);
     setShowPasswordDialog(true);
   };
 
@@ -226,6 +222,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
 
       setShowPasswordDialog(false);
       setLoginPassword("");
+      setLoggingInSlot(null);
       loadAccountSlots();
       
       // Notify parent component immediately
@@ -376,6 +373,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
 
   const activeAccount = slots.find(slot => slot.isActive);
   const emptySlots = slots.filter(slot => !slot.userId);
+  const occupiedSlots = slots.filter(slot => slot.userId);
 
   return (
     <div className="w-full max-w-5xl mx-auto p-4 space-y-8">
@@ -386,6 +384,11 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
         <p className="text-gray-600 dark:text-gray-300">
           Manage your spiritual accounts (Maximum 3 per device)
         </p>
+        <div className="mt-4 bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+          <p className="text-green-700 dark:text-green-400 text-sm">
+            🔒 Device has {occupiedSlots.length}/3 accounts • {emptySlots.length} slots available
+          </p>
+        </div>
       </div>
 
       {/* Active Account Display */}
@@ -426,15 +429,15 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
 
       {/* Account Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {slots.filter(slot => slot.userId).map((slot) => (
+        {/* Existing Accounts */}
+        {occupiedSlots.map((slot) => (
           <Card 
             key={slot.slotId}
-            className={`cursor-pointer transition-all hover:shadow-lg transform hover:scale-105 ${
+            className={`transition-all hover:shadow-lg transform hover:scale-105 ${
               slot.isActive 
                 ? 'ring-2 ring-amber-500 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20' 
                 : 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800/30 dark:hover:to-indigo-800/30'
             }`}
-            onClick={() => !slot.isActive && handleSlotClick(slot)}
           >
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center justify-between text-lg">
@@ -463,9 +466,23 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
                   <p>Last Login: {formatLastLogin(slot.lastLogin)}</p>
                 </div>
                 {!slot.isActive && (
+                  <div className="pt-2">
+                    <Button
+                      onClick={() => handleSlotClick(slot)}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                      size="sm"
+                      disabled={loggingInSlot === slot.slotId}
+                    >
+                      <LogIn className="h-4 w-4 mr-2" />
+                      {loggingInSlot === slot.slotId ? "Logging in..." : "Login"}
+                    </Button>
+                  </div>
+                )}
+                {slot.isActive && (
                   <div className="text-center pt-2">
-                    <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                      Click to login
+                    <div className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center justify-center gap-2">
+                      <Shield className="h-3 w-3" />
+                      Currently Active
                     </div>
                   </div>
                 )}
@@ -598,7 +615,13 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       </Dialog>
 
       {/* Password Login Dialog */}
-      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+      <Dialog open={showPasswordDialog} onOpenChange={(open) => {
+        setShowPasswordDialog(open);
+        if (!open) {
+          setLoggingInSlot(null);
+          setLoginPassword("");
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Account Login</DialogTitle>
@@ -624,6 +647,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
               onClick={handleAccountLogin}
               className="w-full bg-green-500 hover:bg-green-600 text-white"
             >
+              <LogIn className="h-4 w-4 mr-2" />
               Login
             </Button>
           </div>

@@ -32,14 +32,14 @@ const HomePage: React.FC = () => {
         const account = await getActiveAccount();
         console.log("HomePage: Active account result:", account?.name || "None");
         
-        setActiveAccount(account);
-        setHasCheckedAccount(true);
-        
         if (!account) {
           console.log("HomePage: No active account found, redirecting to welcome");
           navigate('/welcome');
           return;
         }
+        
+        setActiveAccount(account);
+        setHasCheckedAccount(true);
         
         console.log("HomePage: Loading user data for", account.name);
         
