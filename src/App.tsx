@@ -26,7 +26,7 @@ function App() {
             <Route path="/active-days" element={<ActiveDaysPage />} />
             <Route path="/spiritual-id" element={<SpiritualIdPage />} />
             <Route path="/identity-guide" element={<IdentityGuidePage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/welcome" replace />} />
           </Routes>
           <Toaster position="top-center" />
         </div>

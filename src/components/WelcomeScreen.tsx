@@ -38,9 +38,14 @@ const WelcomeScreen: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        // Check for active account first
+        // Check for active account first with timeout protection
         try {
-          const activeAccount = await getActiveAccount();
+          const activeAccountPromise = getActiveAccount();
+          const timeoutPromise = new Promise<null>((_, reject) => 
+            setTimeout(() => reject(new Error('Active account check timeout')), 3000)
+          );
+          
+          const activeAccount = await Promise.race([activeAccountPromise, timeoutPromise]);
           
           if (!isMounted) return;
           
@@ -53,14 +58,19 @@ const WelcomeScreen: React.FC = () => {
           console.warn("WelcomeScreen: Active account check failed:", activeAccountError);
         }
         
-        // Get all account slots with retry mechanism
+        // Get all account slots with retry mechanism and timeout
         let slots: AccountSlot[] = [];
         let retryCount = 0;
         const maxRetries = 3;
         
         while (retryCount < maxRetries && isMounted) {
           try {
-            slots = await getAccountSlots();
+            const slotsPromise = getAccountSlots();
+            const timeoutPromise = new Promise<AccountSlot[]>((_, reject) => 
+              setTimeout(() => reject(new Error('Slots check timeout')), 2000)
+            );
+            
+            slots = await Promise.race([slotsPromise, timeoutPromise]);
             break;
           } catch (slotsError) {
             console.warn(`WelcomeScreen: Slots check failed (attempt ${retryCount + 1}):`, slotsError);
@@ -86,7 +96,7 @@ const WelcomeScreen: React.FC = () => {
         }
       } finally {
         if (isMounted) {
-          setLoading(false);
+          setIsLoading(false);
         }
       }
     };
@@ -182,7 +192,7 @@ const WelcomeScreen: React.FC = () => {
     return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Error state
+  // Error state with timeout protection
   if (error && !loading && accounts.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-red-50 to-red-100 flex items-center justify-center p-4">
@@ -203,7 +213,7 @@ const WelcomeScreen: React.FC = () => {
     );
   }
 
-  // Loading state
+  // Loading state with timeout fallback
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800 flex items-center justify-center">
@@ -211,6 +221,17 @@ const WelcomeScreen: React.FC = () => {
           <div className="flex flex-col items-center justify-center py-12">
             <div className="text-amber-400 text-lg mb-6">Loading your spiritual journey...</div>
             <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+            <div className="mt-4">
+              <button 
+                onClick={() => {
+                  setLoading(false);
+                  setError(null);
+                }}
+                className="text-amber-600 dark:text-amber-400 hover:underline text-sm"
+              >
+                Having trouble? Click here
+              </button>
+            </div>
           </div>
         </ModernCard>
       </div>
@@ -345,6 +366,7 @@ const WelcomeScreen: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && !loggingIn && handlePasswordLogin()}
+                autoFocus
               />
             </div>
             

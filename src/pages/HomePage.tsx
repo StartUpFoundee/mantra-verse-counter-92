@@ -29,22 +29,21 @@ const HomePage: React.FC = () => {
         setIsLoading(true);
         setError(null);
         
-        // Enhanced account checking with multiple attempts
-        let account: UserAccount | null = null;
-        let retryCount = 0;
-        const maxRetries = 3;
+        // Enhanced account checking with timeout protection
+        const accountPromise = getActiveAccount();
+        const timeoutPromise = new Promise<null>((_, reject) => 
+          setTimeout(() => reject(new Error('Account check timeout')), 5000)
+        );
         
-        while (retryCount < maxRetries && !account && isMounted) {
-          try {
-            account = await getActiveAccount();
-            if (account) break;
-          } catch (error) {
-            console.warn(`HomePage: Account check attempt ${retryCount + 1} failed:`, error);
-          }
-          
-          retryCount++;
-          if (retryCount < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+        let account: UserAccount | null = null;
+        
+        try {
+          account = await Promise.race([accountPromise, timeoutPromise]);
+        } catch (timeoutError) {
+          console.warn("HomePage: Account check timed out, redirecting to welcome");
+          if (isMounted) {
+            navigate('/welcome');
+            return;
           }
         }
         
@@ -60,12 +59,18 @@ const HomePage: React.FC = () => {
         
         setActiveAccount(account);
         
-        // Load count data with fallbacks
+        // Load count data with fallbacks and timeout protection
         try {
-          const [lifetime, today] = await Promise.all([
+          const countPromise = Promise.all([
             getLifetimeCount().catch(() => 0),
             getTodayCount().catch(() => 0)
           ]);
+          
+          const countTimeout = new Promise<[number, number]>((_, reject) => 
+            setTimeout(() => reject(new Error('Count data timeout')), 3000)
+          );
+          
+          const [lifetime, today] = await Promise.race([countPromise, countTimeout]);
           
           if (isMounted) {
             setLifetimeCount(lifetime);
@@ -83,6 +88,12 @@ const HomePage: React.FC = () => {
         console.error("HomePage: Critical error:", error);
         if (isMounted) {
           setError(error instanceof Error ? error.message : 'Unknown error');
+          // Don't stay stuck on error, redirect to welcome
+          setTimeout(() => {
+            if (isMounted) {
+              navigate('/welcome');
+            }
+          }, 2000);
         }
       } finally {
         if (isMounted) {
@@ -95,9 +106,9 @@ const HomePage: React.FC = () => {
     
     // Listen for logout events
     const handleLogout = () => {
-      console.log("HomePage: Logout event received, redirecting to welcome");
+      console.log("HomePage: Logout event received, redirecting to spiritual-id");
       setActiveAccount(null);
-      navigate('/welcome');
+      navigate('/spiritual-id');
     };
     
     window.addEventListener('user-logout', handleLogout);
@@ -108,7 +119,7 @@ const HomePage: React.FC = () => {
     };
   }, [navigate]);
 
-  // Error state
+  // Error state - simplified to prevent white screen
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-red-50 via-red-50 to-red-100">
@@ -118,16 +129,16 @@ const HomePage: React.FC = () => {
           <p className="text-gray-600 mb-4 text-sm">{error}</p>
           <div className="space-y-2">
             <button 
-              onClick={() => window.location.reload()}
-              className="w-full bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
-            >
-              Refresh Page
-            </button>
-            <button 
-              onClick={() => navigate('/welcome')}
-              className="w-full bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
+              onClick={() => window.location.href = '/welcome'}
+              className="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
             >
               Go to Welcome
+            </button>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
+            >
+              Refresh Page
             </button>
           </div>
         </div>
@@ -135,7 +146,7 @@ const HomePage: React.FC = () => {
     );
   }
 
-  // Loading state
+  // Loading state with timeout protection
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
@@ -146,17 +157,31 @@ const HomePage: React.FC = () => {
           <div className="w-16 h-16 border-4 border-amber-200 dark:border-amber-800 rounded-full animate-spin"></div>
           <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-amber-500 rounded-full animate-spin"></div>
         </div>
+        <div className="mt-4">
+          <button 
+            onClick={() => navigate('/welcome')}
+            className="text-amber-600 dark:text-amber-400 hover:underline text-sm"
+          >
+            Having trouble? Go to Welcome
+          </button>
+        </div>
       </div>
     );
   }
 
-  // If no active account and not loading, this should redirect to welcome
+  // Fallback if no active account
   if (!activeAccount) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
         <div className="text-center">
           <div className="text-amber-600 text-lg mb-4">Redirecting to welcome...</div>
           <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <button 
+            onClick={() => navigate('/welcome')}
+            className="mt-4 text-amber-600 hover:underline text-sm"
+          >
+            Click here if not redirected
+          </button>
         </div>
       </div>
     );

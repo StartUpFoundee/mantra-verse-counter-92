@@ -45,12 +45,22 @@ export const handleLogout = async (): Promise<void> => {
     
     console.log("LogoutHandler: Logout completed successfully");
     
+    // Redirect to spiritual ID page (account management)
+    setTimeout(() => {
+      window.location.href = '/spiritual-id';
+    }, 500);
+    
   } catch (error) {
     console.error("LogoutHandler: Logout failed:", error);
     
     // Still try to clear session and redirect even if there's an error
     sessionStorage.clear();
     window.dispatchEvent(new CustomEvent('user-logout'));
+    
+    // Force redirect to spiritual ID page
+    setTimeout(() => {
+      window.location.href = '/spiritual-id';
+    }, 500);
   }
 };
 

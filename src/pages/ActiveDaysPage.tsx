@@ -1,9 +1,17 @@
 
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, Flame, Target, TrendingUp } from "lucide-react";
+import { ArrowLeft, Calendar, Flame, Target, TrendingUp, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getActivityData, getStreakData } from "@/utils/activityUtils";
+import { 
+  getActivityData, 
+  getStreakData, 
+  getAchievementStats,
+  getActivityLevel,
+  getActivityIcon,
+  ACHIEVEMENT_CATEGORIES,
+  type AchievementCategory 
+} from "@/utils/activityUtils";
 import ModernCard from "@/components/ModernCard";
 
 interface ActivityData {
@@ -24,26 +32,28 @@ const ActiveDaysPage: React.FC = () => {
     maxStreak: 0,
     totalActiveDays: 0
   });
+  const [achievementStats, setAchievementStats] = useState<{[categoryId: string]: number}>({});
   const [hoveredDay, setHoveredDay] = useState<{date: string, count: number} | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const loadData = async () => {
-      const activity = await getActivityData();
-      const streaks = await getStreakData();
-      setActivityData(activity);
-      setStreakData(streaks);
+      try {
+        const [activity, streaks, achievements] = await Promise.all([
+          getActivityData(),
+          getStreakData(),
+          getAchievementStats()
+        ]);
+        
+        setActivityData(activity);
+        setStreakData(streaks);
+        setAchievementStats(achievements);
+      } catch (error) {
+        console.error("Failed to load active days data:", error);
+      }
     };
     loadData();
   }, []);
-
-  const getActivityLevel = (count: number): string => {
-    if (count === 0) return "bg-gray-200/50 dark:bg-gray-700/50";
-    if (count <= 20) return "bg-emerald-200/70 dark:bg-emerald-800/50";
-    if (count <= 50) return "bg-emerald-300/80 dark:bg-emerald-700/60";
-    if (count <= 100) return "bg-emerald-400/90 dark:bg-emerald-600/70";
-    return "bg-emerald-500 dark:bg-emerald-500";
-  };
 
   const generateCalendarData = () => {
     const today = new Date();
@@ -65,7 +75,8 @@ const ActiveDaysPage: React.FC = () => {
         dayOfWeek: currentDay.getDay(),
         month: currentDay.getMonth(),
         dayOfMonth: currentDay.getDate(),
-        displayDate: new Date(currentDay)
+        displayDate: new Date(currentDay),
+        icon: getActivityIcon(count)
       });
       
       currentDay.setDate(currentDay.getDate() + 1);
@@ -142,6 +153,36 @@ const ActiveDaysPage: React.FC = () => {
         </ModernCard>
       </div>
 
+      {/* Achievement Categories */}
+      <div className="max-w-6xl mx-auto mb-8 lg:mb-12">
+        <ModernCard className="p-6 lg:p-8 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-xl border-amber-200/50 dark:border-amber-700/50" gradient>
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Award className="w-6 h-6 lg:w-7 lg:h-7 text-amber-600 dark:text-amber-400" />
+              <h2 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">Achievement Categories</h2>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400">Your progress across different levels of spiritual practice</p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {ACHIEVEMENT_CATEGORIES.map((category: AchievementCategory) => (
+              <div
+                key={category.id}
+                className={`p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 ${category.color} text-center transition-all duration-300 hover:scale-105`}
+              >
+                <div className="text-3xl mb-2">{category.icon}</div>
+                <h3 className="font-semibold text-sm mb-1">{category.name}</h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">{category.description}</p>
+                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                  {achievementStats[category.id] || 0}
+                  <span className="text-xs font-normal ml-1">days</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ModernCard>
+      </div>
+
       {/* Calendar Grid */}
       <div className="max-w-6xl mx-auto">
         <ModernCard className="p-6 lg:p-8 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-xl border-amber-200/50 dark:border-amber-700/50" gradient>
@@ -157,7 +198,7 @@ const ActiveDaysPage: React.FC = () => {
             {/* Weekday Labels */}
             <div className="flex gap-1 lg:gap-2 ml-12 lg:ml-16">
               {weekdays.map((day) => (
-                <div key={day} className="w-3 h-3 lg:w-4 lg:h-4 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center">
+                <div key={day} className="w-6 h-6 lg:w-8 lg:h-8 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center">
                   {day[0]}
                 </div>
               ))}
@@ -169,7 +210,7 @@ const ActiveDaysPage: React.FC = () => {
                 <div key={weekIndex} className="flex flex-col gap-1 lg:gap-2">
                   {/* Month label */}
                   {weekIndex === 0 || (calendarDays[weekIndex * 7] && calendarDays[weekIndex * 7].displayDate.getDate() <= 7) ? (
-                    <div className="h-4 lg:h-6 text-xs text-gray-500 dark:text-gray-400 mb-1 lg:mb-2 min-w-[40px] lg:min-w-[60px]">
+                    <div className="h-4 lg:h-6 text-xs text-gray-500 dark:text-gray-400 mb-1 lg:mb-2 min-w-[48px] lg:min-w-[64px]">
                       {calendarDays[weekIndex * 7] && months[calendarDays[weekIndex * 7].month]}
                     </div>
                   ) : (
@@ -178,12 +219,12 @@ const ActiveDaysPage: React.FC = () => {
                   
                   {Array.from({ length: 7 }, (_, dayIndex) => {
                     const dayData = calendarDays[weekIndex * 7 + dayIndex];
-                    if (!dayData) return <div key={dayIndex} className="w-3 h-3 lg:w-4 lg:h-4"></div>;
+                    if (!dayData) return <div key={dayIndex} className="w-6 h-6 lg:w-8 lg:h-8"></div>;
                     
                     return (
                       <div
                         key={dayIndex}
-                        className={`w-3 h-3 lg:w-4 lg:h-4 rounded-sm cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-amber-400 relative ${
+                        className={`w-6 h-6 lg:w-8 lg:h-8 rounded-sm cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-amber-400 relative flex items-center justify-center ${
                           getActivityLevel(dayData.count)
                         } ${dayData.isToday ? 'ring-2 ring-amber-500' : ''}`}
                         onMouseEnter={(e) => {
@@ -192,7 +233,11 @@ const ActiveDaysPage: React.FC = () => {
                         }}
                         onMouseMove={handleMouseMove}
                         onMouseLeave={() => setHoveredDay(null)}
-                      />
+                      >
+                        {dayData.icon && (
+                          <span className="text-xs lg:text-sm">{dayData.icon}</span>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -200,13 +245,18 @@ const ActiveDaysPage: React.FC = () => {
             </div>
 
             {/* Legend */}
-            <div className="flex items-center gap-2 lg:gap-3 text-xs lg:text-sm text-gray-500 dark:text-gray-400 justify-center">
+            <div className="flex items-center gap-2 lg:gap-3 text-xs lg:text-sm text-gray-500 dark:text-gray-400 justify-center flex-wrap">
               <span>Less</span>
-              <div className="w-3 h-3 lg:w-4 lg:h-4 bg-gray-200/50 dark:bg-gray-700/50 rounded-sm"></div>
-              <div className="w-3 h-3 lg:w-4 lg:h-4 bg-emerald-200/70 dark:bg-emerald-800/50 rounded-sm"></div>
-              <div className="w-3 h-3 lg:w-4 lg:h-4 bg-emerald-300/80 dark:bg-emerald-700/60 rounded-sm"></div>
-              <div className="w-3 h-3 lg:w-4 lg:h-4 bg-emerald-400/90 dark:bg-emerald-600/70 rounded-sm"></div>
-              <div className="w-3 h-3 lg:w-4 lg:h-4 bg-emerald-500 dark:bg-emerald-500 rounded-sm"></div>
+              <div className="w-4 h-4 lg:w-6 lg:h-6 bg-gray-200/50 dark:bg-gray-700/50 rounded-sm"></div>
+              {ACHIEVEMENT_CATEGORIES.slice(0, 4).map(category => (
+                <div 
+                  key={category.id}
+                  className={`w-4 h-4 lg:w-6 lg:h-6 rounded-sm flex items-center justify-center ${category.color}`}
+                  title={category.description}
+                >
+                  <span className="text-xs">{category.icon}</span>
+                </div>
+              ))}
               <span>More</span>
             </div>
           </div>
@@ -233,6 +283,11 @@ const ActiveDaysPage: React.FC = () => {
           <div className="text-amber-600 dark:text-amber-400">
             {hoveredDay.count} jaaps completed
           </div>
+          {hoveredDay.count >= 5 && (
+            <div className="text-emerald-600 dark:text-emerald-400 text-xs mt-1">
+              Achievement unlocked! {getActivityIcon(hoveredDay.count)}
+            </div>
+          )}
         </div>
       )}
     </div>
