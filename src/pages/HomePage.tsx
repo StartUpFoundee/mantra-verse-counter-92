@@ -18,8 +18,11 @@ const HomePage: React.FC = () => {
   const [todayCount, setTodayCount] = useState<number>(0);
   const [activeAccount, setActiveAccount] = useState<UserAccount | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [hasCheckedAccount, setHasCheckedAccount] = useState(false);
 
   useEffect(() => {
+    if (hasCheckedAccount) return;
+    
     console.log("HomePage: Component mounted, starting data load...");
     
     const loadData = async () => {
@@ -29,34 +32,43 @@ const HomePage: React.FC = () => {
         const account = await getActiveAccount();
         console.log("HomePage: Active account result:", account?.name || "None");
         
+        setActiveAccount(account);
+        setHasCheckedAccount(true);
+        
         if (!account) {
           console.log("HomePage: No active account found, redirecting to welcome");
           navigate('/welcome');
           return;
         }
         
-        setActiveAccount(account);
-        
         console.log("HomePage: Loading user data for", account.name);
-        const lifetime = await getLifetimeCount();
-        const today = await getTodayCount();
         
-        setLifetimeCount(lifetime);
-        setTodayCount(today);
+        try {
+          const lifetime = await getLifetimeCount();
+          const today = await getTodayCount();
+          
+          setLifetimeCount(lifetime);
+          setTodayCount(today);
+          
+          console.log("HomePage: Data loaded successfully - Lifetime:", lifetime, "Today:", today);
+        } catch (dataError) {
+          console.error("HomePage: Error loading count data:", dataError);
+          // Continue with default values
+          setLifetimeCount(0);
+          setTodayCount(0);
+        }
         
-        console.log("HomePage: Data loaded successfully - Lifetime:", lifetime, "Today:", today);
       } catch (error) {
         console.error("HomePage: Error loading data:", error);
-        toast("Error loading your data", {
-          description: "Please try refreshing the page"
-        });
+        setActiveAccount(null);
+        navigate('/welcome');
       } finally {
         setIsLoading(false);
       }
     };
     
     loadData();
-  }, [navigate]);
+  }, [navigate, hasCheckedAccount]);
 
   console.log("HomePage: Rendering - isLoading:", isLoading, "activeAccount:", activeAccount?.name || "None");
 

@@ -11,11 +11,14 @@ const WelcomeScreen: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [hasActiveAccount, setHasActiveAccount] = useState(false);
+  const [hasCheckedAccount, setHasCheckedAccount] = useState(false);
   
   useEffect(() => {
+    if (hasCheckedAccount) return;
+    
     console.log("WelcomeScreen: Component mounted, checking for active account...");
     checkForActiveAccount();
-  }, []);
+  }, [hasCheckedAccount]);
 
   const checkForActiveAccount = async () => {
     try {
@@ -28,9 +31,11 @@ const WelcomeScreen: React.FC = () => {
         console.log("WelcomeScreen: No active account found");
         setHasActiveAccount(false);
       }
+      setHasCheckedAccount(true);
     } catch (error) {
       console.error("WelcomeScreen: Failed to check active account:", error);
       setHasActiveAccount(false);
+      setHasCheckedAccount(true);
     } finally {
       setLoading(false);
     }
