@@ -3,8 +3,8 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import HomePage from "@/pages/HomePage";
-import ManualCounterPage from "@/pages/ManualCounterPage";
-import AudioCounterPage from "@/pages/AudioCounterPage";
+import ManualCountPage from "@/pages/ManualCountPage";
+import AudioCountPage from "@/pages/AudioCountPage";
 import ActiveDaysPage from "@/pages/ActiveDaysPage";
 import SpiritualIdPage from "@/pages/SpiritualIdPage";
 import IdentityGuidePage from "@/pages/IdentityGuidePage";
@@ -17,8 +17,8 @@ function App() {
         <Routes>
           <Route path="/welcome" element={<WelcomeScreen />} />
           <Route path="/" element={<HomePage />} />
-          <Route path="/manual" element={<ManualCounterPage />} />
-          <Route path="/audio" element={<AudioCounterPage />} />
+          <Route path="/manual" element={<ManualCountPage />} />
+          <Route path="/audio" element={<AudioCountPage />} />
           <Route path="/active-days" element={<ActiveDaysPage />} />
           <Route path="/spiritual-id" element={<SpiritualIdPage />} />
           <Route path="/identity-guide" element={<IdentityGuidePage />} />
