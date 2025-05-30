@@ -20,31 +20,31 @@ const HomePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    console.log("HomePage: Component mounted, starting data load...");
+    
     const loadData = async () => {
       setIsLoading(true);
       try {
         console.log("HomePage: Checking for active account...");
         const account = await getActiveAccount();
-        console.log("HomePage: Active account found:", account?.name || "None");
+        console.log("HomePage: Active account result:", account?.name || "None");
         
-        setActiveAccount(account);
-        
-        if (account) {
-          // User is logged in, load their data
-          console.log("HomePage: Loading user data for", account.name);
-          const lifetime = await getLifetimeCount();
-          const today = await getTodayCount();
-          
-          setLifetimeCount(lifetime);
-          setTodayCount(today);
-          
-          console.log("HomePage: Data loaded - Lifetime:", lifetime, "Today:", today);
-        } else {
-          console.log("HomePage: No active account, redirecting to welcome");
-          // If no account and not already on welcome screen, navigate
+        if (!account) {
+          console.log("HomePage: No active account found, redirecting to welcome");
           navigate('/welcome');
           return;
         }
+        
+        setActiveAccount(account);
+        
+        console.log("HomePage: Loading user data for", account.name);
+        const lifetime = await getLifetimeCount();
+        const today = await getTodayCount();
+        
+        setLifetimeCount(lifetime);
+        setTodayCount(today);
+        
+        console.log("HomePage: Data loaded successfully - Lifetime:", lifetime, "Today:", today);
       } catch (error) {
         console.error("HomePage: Error loading data:", error);
         toast("Error loading your data", {
@@ -57,6 +57,8 @@ const HomePage: React.FC = () => {
     
     loadData();
   }, [navigate]);
+
+  console.log("HomePage: Rendering - isLoading:", isLoading, "activeAccount:", activeAccount?.name || "None");
 
   // Show loading spinner while checking for accounts
   if (isLoading) {

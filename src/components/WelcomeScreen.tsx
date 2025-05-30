@@ -13,6 +13,7 @@ const WelcomeScreen: React.FC = () => {
   const [hasActiveAccount, setHasActiveAccount] = useState(false);
   
   useEffect(() => {
+    console.log("WelcomeScreen: Component mounted, checking for active account...");
     checkForActiveAccount();
   }, []);
 
@@ -23,7 +24,6 @@ const WelcomeScreen: React.FC = () => {
       if (activeAccount) {
         console.log("WelcomeScreen: Found active account:", activeAccount.name);
         setHasActiveAccount(true);
-        // Don't auto-redirect here to prevent loops
       } else {
         console.log("WelcomeScreen: No active account found");
         setHasActiveAccount(false);
@@ -54,6 +54,13 @@ const WelcomeScreen: React.FC = () => {
     navigate("/");
   };
 
+  const handleContinueToApp = () => {
+    console.log("WelcomeScreen: User chose to continue to app");
+    navigate("/");
+  };
+
+  console.log("WelcomeScreen: Rendering - loading:", loading, "hasActiveAccount:", hasActiveAccount);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800 flex items-center justify-center">
@@ -67,7 +74,7 @@ const WelcomeScreen: React.FC = () => {
     );
   }
 
-  // If user has active account, show login button
+  // If user has active account, show continue button
   if (hasActiveAccount) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800 flex items-center justify-center p-4">
@@ -84,7 +91,7 @@ const WelcomeScreen: React.FC = () => {
           
           <div className="text-center mb-8">
             <Button
-              onClick={() => window.location.reload()}
+              onClick={handleContinueToApp}
               className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8 py-3 text-lg"
             >
               Continue to App

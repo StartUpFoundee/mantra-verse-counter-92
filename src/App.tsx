@@ -11,6 +11,8 @@ import IdentityGuidePage from "@/pages/IdentityGuidePage";
 import WelcomeScreen from "@/components/WelcomeScreen";
 
 function App() {
+  console.log("App.tsx: App component rendering...");
+  
   return (
     <Router>
       <div className="App">
