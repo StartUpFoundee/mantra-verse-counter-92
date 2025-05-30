@@ -1,8 +1,9 @@
-
 /**
- * Account Storage Management - 4-Layer Storage System
- * IndexedDB (primary) → localStorage (backup) → sessionStorage (session) → window.name (navigation)
+ * Account Storage Management - Enhanced 8-Layer Storage System
+ * IndexedDB → localStorage → sessionStorage → window.name → historyState → cssVariables → serviceWorker → broadcastChannel
  */
+
+import { enhancedStore, enhancedRetrieve, initEnhancedStorage } from './enhancedStorage';
 
 // Account storage configuration
 export const STORAGE_CONFIG = {
@@ -42,6 +43,18 @@ export interface UserAccount {
   slotId: number;
   userData: any; // All app-specific data
 }
+
+/**
+ * Initialize enhanced storage on module load
+ */
+let enhancedStorageInitialized = false;
+
+const ensureEnhancedStorage = async () => {
+  if (!enhancedStorageInitialized) {
+    await initEnhancedStorage();
+    enhancedStorageInitialized = true;
+  }
+};
 
 /**
  * Initialize IndexedDB for account management
@@ -136,9 +149,22 @@ export const generateSalt = (): string => {
 };
 
 /**
- * Get all account slots
+ * Get all account slots with enhanced storage
  */
 export const getAccountSlots = async (): Promise<AccountSlot[]> => {
+  await ensureEnhancedStorage();
+  
+  try {
+    // Try enhanced storage first
+    const slots = await enhancedRetrieve('accountSlots');
+    if (slots && Array.isArray(slots)) {
+      return slots;
+    }
+  } catch (error) {
+    console.warn('Enhanced storage retrieval failed, trying legacy methods');
+  }
+
+  // Fallback to traditional methods
   try {
     const db = await initAccountDB();
     const transaction = db.transaction(['accountSlots'], 'readonly');
@@ -148,7 +174,6 @@ export const getAccountSlots = async (): Promise<AccountSlot[]> => {
       const request = store.getAll();
       request.onsuccess = () => {
         const slots = request.result;
-        // Ensure we have exactly 3 slots
         const allSlots: AccountSlot[] = [];
         for (let i = 1; i <= STORAGE_CONFIG.MAX_ACCOUNTS; i++) {
           const existingSlot = slots.find((s: AccountSlot) => s.slotId === i);
@@ -161,12 +186,15 @@ export const getAccountSlots = async (): Promise<AccountSlot[]> => {
             isActive: false
           });
         }
+        
+        // Store in enhanced storage for future use
+        enhancedStore('accountSlots', allSlots).catch(console.warn);
+        
         resolve(allSlots);
       };
       request.onerror = () => reject(request.error);
     });
   } catch (error) {
-    // Fallback to localStorage
     return getAccountSlotsFromLocalStorage();
   }
 };
@@ -195,9 +223,11 @@ const getAccountSlotsFromLocalStorage = (): AccountSlot[] => {
 };
 
 /**
- * Save account to available slot
+ * Save account to available slot with enhanced storage
  */
 export const saveAccountToSlot = async (account: UserAccount): Promise<number> => {
+  await ensureEnhancedStorage();
+  
   const slots = await getAccountSlots();
   const availableSlot = slots.find(slot => !slot.userId);
   
@@ -209,10 +239,29 @@ export const saveAccountToSlot = async (account: UserAccount): Promise<number> =
   account.slotId = slotId;
   
   try {
+    // Store in enhanced storage system
+    await enhancedStore(`account_${account.id}`, account);
+    await enhancedStore(`slot_${slotId}`, {
+      slotId,
+      userId: account.id,
+      name: account.name,
+      lastLogin: account.lastLogin,
+      createdAt: account.createdAt,
+      isActive: true
+    });
+    
+    // Update slots array and store
+    const updatedSlots = slots.map(slot => 
+      slot.slotId === slotId 
+        ? { ...slot, userId: account.id, name: account.name, lastLogin: account.lastLogin, createdAt: account.createdAt, isActive: true }
+        : slot
+    );
+    await enhancedStore('accountSlots', updatedSlots);
+    
+    // Traditional storage as backup
     const db = await initAccountDB();
     const transaction = db.transaction(['accountSlots', 'accountData'], 'readwrite');
     
-    // Update slot
     const slotStore = transaction.objectStore('accountSlots');
     const slotData: AccountSlot = {
       slotId,
@@ -224,7 +273,6 @@ export const saveAccountToSlot = async (account: UserAccount): Promise<number> =
     };
     slotStore.put(slotData);
     
-    // Save account data
     const accountStore = transaction.objectStore('accountData');
     accountStore.put(account);
     
@@ -233,12 +281,12 @@ export const saveAccountToSlot = async (account: UserAccount): Promise<number> =
       transaction.onerror = () => reject(transaction.error);
     });
     
-    // Backup to localStorage
+    // localStorage backup
     localStorage.setItem(`acc${slotId}_slot`, JSON.stringify(slotData));
     localStorage.setItem(`acc${slotId}_data`, JSON.stringify(account));
     
   } catch (error) {
-    console.error('IndexedDB save failed, using localStorage:', error);
+    console.error('Enhanced storage save failed, using fallback:', error);
     // Fallback to localStorage only
     const slotData: AccountSlot = {
       slotId,
@@ -256,9 +304,26 @@ export const saveAccountToSlot = async (account: UserAccount): Promise<number> =
 };
 
 /**
- * Get account by slot ID
+ * Get account by slot ID with enhanced storage
  */
 export const getAccountBySlot = async (slotId: number): Promise<UserAccount | null> => {
+  await ensureEnhancedStorage();
+  
+  try {
+    // Try to get slot info first
+    const slotData = await enhancedRetrieve(`slot_${slotId}`);
+    if (slotData && slotData.userId) {
+      // Get full account data
+      const account = await enhancedRetrieve(`account_${slotData.userId}`);
+      if (account) {
+        return account;
+      }
+    }
+  } catch (error) {
+    console.warn('Enhanced storage account retrieval failed, trying traditional methods');
+  }
+
+  // Fallback to traditional methods
   try {
     const db = await initAccountDB();
     const transaction = db.transaction(['accountData'], 'readonly');
@@ -267,26 +332,36 @@ export const getAccountBySlot = async (slotId: number): Promise<UserAccount | nu
     
     return new Promise((resolve, reject) => {
       const request = index.get(slotId);
-      request.onsuccess = () => resolve(request.result || null);
+      request.onsuccess = () => {
+        const account = request.result || null;
+        if (account) {
+          // Store in enhanced storage for future use
+          enhancedStore(`account_${account.id}`, account).catch(console.warn);
+        }
+        resolve(account);
+      };
       request.onerror = () => reject(request.error);
     });
   } catch (error) {
-    // Fallback to localStorage
     const accountData = localStorage.getItem(`acc${slotId}_data`);
     return accountData ? JSON.parse(accountData) : null;
   }
 };
 
 /**
- * Set active account slot
+ * Set active account slot with enhanced storage
  */
 export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
+  await ensureEnhancedStorage();
+  
   // Clear all active flags first
   const slots = await getAccountSlots();
   for (const slot of slots) {
     if (slot.userId) {
       slot.isActive = false;
       try {
+        await enhancedStore(`slot_${slot.slotId}`, slot);
+        
         const db = await initAccountDB();
         const transaction = db.transaction(['accountSlots'], 'readwrite');
         const store = transaction.objectStore('accountSlots');
@@ -304,6 +379,9 @@ export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
     activeSlot.lastLogin = new Date().toISOString();
     
     try {
+      await enhancedStore(`slot_${slotId}`, activeSlot);
+      await enhancedStore('activeAccountSlot', slotId);
+      
       const db = await initAccountDB();
       const transaction = db.transaction(['accountSlots'], 'readwrite');
       const store = transaction.objectStore('accountSlots');
@@ -312,6 +390,12 @@ export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
       localStorage.setItem(`acc${slotId}_slot`, JSON.stringify(activeSlot));
     }
     
+    // Update slots array
+    const updatedSlots = slots.map(slot => 
+      slot.slotId === slotId ? activeSlot : slot
+    );
+    await enhancedStore('accountSlots', updatedSlots);
+    
     // Set session data
     sessionStorage.setItem('activeAccountSlot', slotId.toString());
     window.name = `activeSlot_${slotId}`;
@@ -319,9 +403,21 @@ export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
 };
 
 /**
- * Get current active account
+ * Get current active account with enhanced storage
  */
 export const getActiveAccount = async (): Promise<UserAccount | null> => {
+  await ensureEnhancedStorage();
+  
+  try {
+    // Try enhanced storage first
+    const activeSlotId = await enhancedRetrieve('activeAccountSlot');
+    if (activeSlotId) {
+      return await getAccountBySlot(activeSlotId);
+    }
+  } catch (error) {
+    console.warn('Enhanced storage active account retrieval failed, trying fallbacks');
+  }
+
   // Check session first
   const sessionSlot = sessionStorage.getItem('activeAccountSlot');
   if (sessionSlot) {
@@ -345,19 +441,45 @@ export const getActiveAccount = async (): Promise<UserAccount | null> => {
 };
 
 /**
- * Replace account in slot (for import when device is full)
+ * Replace account in slot with enhanced storage
  */
 export const replaceAccountInSlot = async (account: UserAccount, targetSlotId: number): Promise<void> => {
+  await ensureEnhancedStorage();
+  
   account.slotId = targetSlotId;
   
   try {
+    // Get old account to clean up
+    const oldAccount = await getAccountBySlot(targetSlotId);
+    
+    // Store new account in enhanced storage
+    await enhancedStore(`account_${account.id}`, account);
+    await enhancedStore(`slot_${targetSlotId}`, {
+      slotId: targetSlotId,
+      userId: account.id,
+      name: account.name,
+      lastLogin: account.lastLogin,
+      createdAt: account.createdAt,
+      isActive: true
+    });
+    
+    // Clean up old account data
+    if (oldAccount) {
+      try {
+        // Note: In a real implementation, you might want to keep old data for recovery
+        console.log(`Replacing account ${oldAccount.id} with ${account.id}`);
+      } catch (error) {
+        console.warn('Old account cleanup failed:', error);
+      }
+    }
+    
+    // Traditional storage as backup
     const db = await initAccountDB();
     const transaction = db.transaction(['accountSlots', 'accountData', 'appData'], 'readwrite');
     
     // Clear existing app data for this slot
     const appStore = transaction.objectStore('appData');
     const appIndex = appStore.index('accountId');
-    const oldAccount = await getAccountBySlot(targetSlotId);
     if (oldAccount) {
       const deleteRequest = appIndex.openCursor(IDBKeyRange.only(oldAccount.id));
       deleteRequest.onsuccess = (event) => {
@@ -395,7 +517,7 @@ export const replaceAccountInSlot = async (account: UserAccount, targetSlotId: n
     localStorage.setItem(`acc${targetSlotId}_data`, JSON.stringify(account));
     
   } catch (error) {
-    console.error('IndexedDB replace failed, using localStorage:', error);
+    console.error('Enhanced storage replace failed, using localStorage:', error);
     // Fallback to localStorage
     const slotData: AccountSlot = {
       slotId: targetSlotId,
@@ -418,7 +540,6 @@ export const clearAccountSlot = async (slotId: number): Promise<void> => {
     const db = await initAccountDB();
     const transaction = db.transaction(['accountSlots', 'accountData', 'appData'], 'readwrite');
     
-    // Get account to clear app data
     const account = await getAccountBySlot(slotId);
     if (account) {
       const appStore = transaction.objectStore('appData');
@@ -433,11 +554,9 @@ export const clearAccountSlot = async (slotId: number): Promise<void> => {
       };
     }
     
-    // Clear slot
     const slotStore = transaction.objectStore('accountSlots');
     slotStore.delete(slotId);
     
-    // Clear account data
     if (account) {
       const accountStore = transaction.objectStore('accountData');
       accountStore.delete(account.id);
@@ -447,11 +566,9 @@ export const clearAccountSlot = async (slotId: number): Promise<void> => {
     console.error('IndexedDB clear failed:', error);
   }
   
-  // Clear localStorage backup
   localStorage.removeItem(`acc${slotId}_slot`);
   localStorage.removeItem(`acc${slotId}_data`);
   
-  // Clear session if this was the active slot
   const activeSlot = sessionStorage.getItem('activeAccountSlot');
   if (activeSlot === slotId.toString()) {
     sessionStorage.removeItem('activeAccountSlot');

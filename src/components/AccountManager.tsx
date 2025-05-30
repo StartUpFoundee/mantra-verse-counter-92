@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
-import { User, UserPlus, Copy, Download, Upload, AlertTriangle } from "lucide-react";
+import { User, UserPlus, Copy, Download, Upload, AlertTriangle, Plus, Shield, Sparkles } from "lucide-react";
 import { 
   getAccountSlots, 
   saveAccountToSlot, 
@@ -21,12 +20,14 @@ import {
   type AccountSlot,
   type UserAccount 
 } from "@/utils/accountStorage";
+import { useNavigate } from "react-router-dom";
 
 interface AccountManagerProps {
   onAccountSelected: (account: UserAccount) => void;
 }
 
 const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) => {
+  const navigate = useNavigate();
   const [slots, setSlots] = useState<AccountSlot[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -99,7 +100,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
         salt,
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
-        slotId: 0, // Will be set by saveAccountToSlot
+        slotId: selectedSlot || 0,
         userData: {
           lifetimeCount: 0,
           todayCount: 0,
@@ -107,7 +108,15 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
         }
       };
 
-      const slotId = await saveAccountToSlot(newAccount);
+      let slotId;
+      if (selectedSlot) {
+        newAccount.slotId = selectedSlot;
+        await saveAccountToSlot(newAccount);
+        slotId = selectedSlot;
+      } else {
+        slotId = await saveAccountToSlot(newAccount);
+      }
+      
       await setActiveAccountSlot(slotId);
       
       toast("Account Created!", {
@@ -119,10 +128,11 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       resetCreateForm();
       loadAccountSlots();
       
-      // Set the account as active and notify parent
+      // Set the account as active and navigate to home
       const activeAccount = await getActiveAccount();
       if (activeAccount) {
         onAccountSelected(activeAccount);
+        navigate('/');
       }
 
     } catch (error: any) {
@@ -187,6 +197,9 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       setLoginPassword("");
       loadAccountSlots();
       onAccountSelected(account);
+      
+      // Navigate to home page after successful login
+      navigate('/');
 
     } catch (error) {
       toast("Login Failed", {
@@ -237,6 +250,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       const activeAccount = await getActiveAccount();
       if (activeAccount) {
         onAccountSelected(activeAccount);
+        navigate('/');
       }
 
     } catch (error) {
@@ -267,6 +281,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       const activeAccount = await getActiveAccount();
       if (activeAccount) {
         onAccountSelected(activeAccount);
+        navigate('/');
       }
 
     } catch (error) {
@@ -290,71 +305,143 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
     return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const activeAccount = slots.find(slot => slot.isActive);
+  const emptySlots = slots.filter(slot => !slot.userId);
+
   return (
-    <div className="w-full max-w-4xl mx-auto p-4 space-y-6">
+    <div className="w-full max-w-5xl mx-auto p-4 space-y-8">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-2">
           Account Manager
         </h1>
         <p className="text-gray-600 dark:text-gray-300">
-          Choose an account or create a new one (Maximum 3 accounts per device)
+          Manage your spiritual accounts (Maximum 3 per device)
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {slots.map((slot) => (
+      {/* Active Account Display */}
+      {activeAccount && (
+        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-700">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-green-700 dark:text-green-400">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              Currently Active Account
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                  {activeAccount.name?.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-bold text-lg">{activeAccount.name}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Account {activeAccount.slotId}</p>
+                  <p className="text-xs text-gray-500">Last login: {formatLastLogin(activeAccount.lastLogin)}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <Button
+                  onClick={() => navigate('/spiritual-id')}
+                  variant="outline"
+                  className="border-green-300 text-green-700 hover:bg-green-50"
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Manage Profile
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Account Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {slots.filter(slot => slot.userId).map((slot) => (
           <Card 
             key={slot.slotId}
-            className={`cursor-pointer transition-all hover:shadow-lg ${
-              slot.isActive ? 'ring-2 ring-amber-500' : ''
-            } ${
-              slot.userId ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20' 
-                          : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-dashed'
+            className={`cursor-pointer transition-all hover:shadow-lg transform hover:scale-105 ${
+              slot.isActive 
+                ? 'ring-2 ring-amber-500 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20' 
+                : 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800/30 dark:hover:to-indigo-800/30'
             }`}
-            onClick={() => handleSlotClick(slot)}
+            onClick={() => !slot.isActive && handleSlotClick(slot)}
           >
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center justify-between text-lg">
-                <span>Account Slot {slot.slotId}</span>
-                {slot.isActive && <div className="w-3 h-3 bg-green-500 rounded-full"></div>}
+                <span className="flex items-center gap-2">
+                  <div className={`w-4 h-4 rounded-full ${slot.isActive ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+                  Account {slot.slotId}
+                </span>
+                {slot.isActive && <Shield className="h-5 w-5 text-green-500" />}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {slot.userId ? (
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <User className="h-5 w-5 text-amber-600" />
-                    <span className="font-medium">{slot.name}</span>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
+                    slot.isActive ? 'bg-green-500' : 'bg-blue-500'
+                  }`}>
+                    {slot.name?.charAt(0).toUpperCase()}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    <p>ID: {slot.userId?.substring(0, 20)}...</p>
-                    <p>Last Login: {formatLastLogin(slot.lastLogin)}</p>
-                    <p>Created: {new Date(slot.createdAt || '').toLocaleDateString()}</p>
-                  </div>
-                  <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                    Click to login
+                  <div className="flex-1">
+                    <p className="font-semibold">{slot.name}</p>
+                    <p className="text-xs text-gray-500">ID: {slot.userId?.substring(0, 12)}...</p>
                   </div>
                 </div>
-              ) : (
-                <div className="text-center py-8 space-y-3">
-                  <UserPlus className="h-12 w-12 text-gray-400 mx-auto" />
-                  <p className="text-gray-500 dark:text-gray-400 font-medium">Create New Account</p>
-                  <p className="text-xs text-gray-400">Click to get started</p>
+                <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                  <p>Created: {new Date(slot.createdAt || '').toLocaleDateString()}</p>
+                  <p>Last Login: {formatLastLogin(slot.lastLogin)}</p>
                 </div>
-              )}
+                {!slot.isActive && (
+                  <div className="text-center pt-2">
+                    <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                      Click to login
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+
+        {/* Create Account Buttons */}
+        {emptySlots.map((slot) => (
+          <Card
+            key={slot.slotId}
+            className="cursor-pointer transition-all hover:shadow-xl transform hover:scale-105 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-dashed border-2 border-gray-300 dark:border-gray-600 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-gradient-to-br hover:from-amber-50 hover:to-orange-50 dark:hover:from-amber-900/20 dark:hover:to-orange-900/20"
+            onClick={() => handleSlotClick(slot)}
+          >
+            <CardContent className="flex flex-col items-center justify-center py-12 space-y-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-lg">
+                <Plus className="h-8 w-8" />
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Create Account {slot.slotId}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Add a new spiritual identity
+                </p>
+              </div>
+              <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                <Sparkles className="h-4 w-4" />
+                <span className="text-xs font-medium">Click to begin</span>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="flex justify-center space-x-4 pt-6">
+      {/* Import Button */}
+      <div className="flex justify-center pt-6">
         <Button
           onClick={() => setImporting(true)}
           variant="outline"
-          className="flex items-center space-x-2"
+          className="flex items-center space-x-2 border-blue-300 text-blue-700 hover:bg-blue-50"
         >
           <Upload className="h-4 w-4" />
-          <span>Import Account</span>
+          <span>Import Existing Account</span>
         </Button>
       </div>
 
@@ -362,7 +449,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Create New Account - Step {step}/2</DialogTitle>
+            <DialogTitle>Create Account {selectedSlot} - Step {step}/2</DialogTitle>
             <DialogDescription>
               {step === 1 ? "Enter your personal information" : "Set up your password"}
             </DialogDescription>
@@ -528,7 +615,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
                   className="w-full justify-start text-left"
                 >
                   <div>
-                    <p className="font-medium">Slot {slot.slotId}: {slot.name}</p>
+                    <p className="font-medium">Account {slot.slotId}: {slot.name}</p>
                     <p className="text-xs text-gray-500">Last login: {formatLastLogin(slot.lastLogin)}</p>
                   </div>
                 </Button>
