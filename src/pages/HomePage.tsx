@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mic, Hand, Infinity, Clock, Sparkles, Calendar } from "lucide-react";
-import { isUserLoggedIn, getUserData } from "@/utils/spiritualIdUtils";
+import { getActiveAccount, type UserAccount } from "@/utils/accountStorage";
 import ThemeToggle from "@/components/ThemeToggle";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import ProfileHeader from "@/components/ProfileHeader";
@@ -18,27 +18,37 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [lifetimeCount, setLifetimeCount] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [activeAccount, setActiveAccount] = useState<UserAccount | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isMigrating, setIsMigrating] = useState<boolean>(false);
 
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const loggedIn = isUserLoggedIn();
-        setIsLoggedIn(loggedIn);
+        console.log("HomePage: Checking for active account...");
+        const account = await getActiveAccount();
+        console.log("HomePage: Active account found:", account?.name || "None");
         
-        if (loggedIn) {
+        setActiveAccount(account);
+        
+        if (account) {
+          // User is logged in, load their data
+          console.log("HomePage: Loading user data for", account.name);
           const lifetime = await getLifetimeCount();
           const today = await getTodayCount();
           
           setLifetimeCount(lifetime);
           setTodayCount(today);
+          
+          console.log("HomePage: Data loaded - Lifetime:", lifetime, "Today:", today);
+        } else {
+          console.log("HomePage: No active account, will show welcome screen");
         }
       } catch (error) {
-        console.error("Error loading data:", error);
-        toast.error("There was an error loading your data. Please try again.");
+        console.error("HomePage: Error loading data:", error);
+        toast("Error loading your data", {
+          description: "Please try refreshing the page"
+        });
       } finally {
         setIsLoading(false);
       }
@@ -47,21 +57,23 @@ const HomePage: React.FC = () => {
     loadData();
   }, []);
 
-  if (!isLoggedIn) {
-    if (isLoading || isMigrating) {
-      return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
-          <div className="mb-6 text-amber-600 dark:text-amber-400 text-xl font-medium">
-            {isMigrating ? "Upgrading your spiritual journey..." : "Loading..."}
-          </div>
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-amber-200 dark:border-amber-800 rounded-full animate-spin"></div>
-            <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-amber-500 rounded-full animate-spin"></div>
-          </div>
+  // Show loading spinner while checking for accounts
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
+        <div className="mb-6 text-amber-600 dark:text-amber-400 text-xl font-medium">
+          Loading your spiritual journey...
         </div>
-      );
-    }
-    
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-amber-200 dark:border-amber-800 rounded-full animate-spin"></div>
+          <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-amber-500 rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // If no active account, show welcome screen for account management
+  if (!activeAccount) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
         <header className="py-6 lg:py-8 text-center relative">
@@ -90,21 +102,8 @@ const HomePage: React.FC = () => {
     );
   }
 
-  const userData = getUserData();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
-        <div className="mb-6 text-amber-600 dark:text-amber-400 text-xl font-medium">
-          Loading your spiritual journey...
-        </div>
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-amber-200 dark:border-amber-800 rounded-full animate-spin"></div>
-          <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-amber-500 rounded-full animate-spin"></div>
-        </div>
-      </div>
-    );
-  }
+  // User is logged in, show the main app
+  console.log("HomePage: Rendering main app for user:", activeAccount.name);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
@@ -122,7 +121,7 @@ const HomePage: React.FC = () => {
                 Mantra Verse
               </h1>
               <p className="text-sm lg:text-base text-gray-600 dark:text-gray-300">
-                {userData ? `Namaste, ${userData.name} Ji` : 'Spiritual Practice'}
+                Namaste, {activeAccount.name} Ji
               </p>
             </div>
           </div>

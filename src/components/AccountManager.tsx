@@ -88,6 +88,8 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
     }
 
     try {
+      console.log("AccountManager: Creating account for", name.trim());
+      
       const userId = generateUserId(name.trim(), dob);
       const salt = generateSalt();
       const hashedPassword = await hashPassword(password, salt);
@@ -119,6 +121,8 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       
       await setActiveAccountSlot(slotId);
       
+      console.log("AccountManager: Account created successfully, slot:", slotId);
+      
       toast("Account Created!", {
         description: `Welcome ${name}! Your account is ready.`,
         icon: <User className="h-4 w-4 text-green-500" />
@@ -128,14 +132,15 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       resetCreateForm();
       loadAccountSlots();
       
-      // Set the account as active and navigate to home
+      // Get the created account and notify parent component
       const activeAccount = await getActiveAccount();
       if (activeAccount) {
+        console.log("AccountManager: Notifying parent of account selection:", activeAccount.name);
         onAccountSelected(activeAccount);
-        navigate('/');
       }
 
     } catch (error: any) {
+      console.error("AccountManager: Account creation failed:", error);
       if (error.message.includes('No available account slots')) {
         toast("Device Full", {
           description: "Maximum 3 accounts per device. Remove an account first."
@@ -170,6 +175,8 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
     }
 
     try {
+      console.log("AccountManager: Attempting login for slot", selectedSlot);
+      
       const account = await getAccountBySlot(selectedSlot);
       if (!account) {
         toast("Account Not Found", {
@@ -188,6 +195,8 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
 
       await setActiveAccountSlot(selectedSlot);
       
+      console.log("AccountManager: Login successful for", account.name);
+      
       toast("Welcome Back!", {
         description: `Logged in as ${account.name}`,
         icon: <User className="h-4 w-4 text-green-500" />
@@ -196,12 +205,12 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       setShowPasswordDialog(false);
       setLoginPassword("");
       loadAccountSlots();
-      onAccountSelected(account);
       
-      // Navigate to home page after successful login
-      navigate('/');
+      // Notify parent component immediately
+      onAccountSelected(account);
 
     } catch (error) {
+      console.error("AccountManager: Login failed:", error);
       toast("Login Failed", {
         description: "Could not log in. Please try again."
       });
@@ -223,6 +232,8 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       if (!accountData.id || !accountData.name || !accountData.hashedPassword) {
         throw new Error("Invalid account data format");
       }
+
+      console.log("AccountManager: Importing account for", accountData.name);
 
       // Check if we have available slots
       const availableSlot = slots.find(slot => !slot.userId);
@@ -249,11 +260,12 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
 
       const activeAccount = await getActiveAccount();
       if (activeAccount) {
+        console.log("AccountManager: Imported account, notifying parent:", activeAccount.name);
         onAccountSelected(activeAccount);
-        navigate('/');
       }
 
     } catch (error) {
+      console.error("AccountManager: Import failed:", error);
       toast("Import Failed", {
         description: "Invalid account data. Please check the format."
       });
@@ -264,6 +276,8 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
     if (!replacementAccount) return;
 
     try {
+      console.log("AccountManager: Replacing account in slot", targetSlotId, "with", replacementAccount.name);
+      
       await replaceAccountInSlot(replacementAccount, targetSlotId);
       await setActiveAccountSlot(targetSlotId);
       
@@ -280,11 +294,12 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
 
       const activeAccount = await getActiveAccount();
       if (activeAccount) {
+        console.log("AccountManager: Replaced account, notifying parent:", activeAccount.name);
         onAccountSelected(activeAccount);
-        navigate('/');
       }
 
     } catch (error) {
+      console.error("AccountManager: Replacement failed:", error);
       toast("Replacement Failed", {
         description: "Could not replace account. Please try again."
       });

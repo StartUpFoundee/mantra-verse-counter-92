@@ -17,31 +17,36 @@ const WelcomeScreen: React.FC = () => {
 
   const checkForActiveAccount = async () => {
     try {
+      console.log("WelcomeScreen: Checking for active account...");
       const activeAccount = await getActiveAccount();
       if (activeAccount) {
+        console.log("WelcomeScreen: Found active account, redirecting to home:", activeAccount.name);
         // User has an active account, redirect to home
         navigate('/');
         return;
+      } else {
+        console.log("WelcomeScreen: No active account found, showing account manager");
       }
     } catch (error) {
-      console.error("Failed to check active account:", error);
+      console.error("WelcomeScreen: Failed to check active account:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleAccountSelected = (account: UserAccount) => {
+    console.log("WelcomeScreen: Account selected, showing welcome toast and redirecting:", account.name);
+    
     toast("Welcome Back!", {
       description: `Logged in as ${account.name}`,
     });
     
-    // Redirect to home page
-    setTimeout(() => {
-      navigate('/');
-    }, 1000);
+    // Redirect to home page immediately
+    navigate('/');
   };
 
   const handleContinueAsGuest = () => {
+    console.log("WelcomeScreen: User chose to continue as guest");
     navigate("/");
   };
 
