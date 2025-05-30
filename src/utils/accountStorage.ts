@@ -1,14 +1,16 @@
 /**
- * Account Storage Management - Enhanced Device-Specific Storage System
- * Eight-layer data persistence strategy for maximum reliability
+ * Account Storage Management - Enhanced with Bulletproof Device Identification
+ * Integrated with 6-layer device persistence for maximum reliability
  */
+
+import { getDeviceId, getCurrentDeviceId } from './deviceIdentification';
 
 // Account storage configuration
 export const STORAGE_CONFIG = {
   MAX_ACCOUNTS: 3,
   ACCOUNT_PREFIXES: ['acc1_', 'acc2_', 'acc3_'],
   DB_NAME: 'NaamJapaAccounts',
-  DB_VERSION: 5 // Incremented for better persistence
+  DB_VERSION: 6 // Incremented for device integration
 };
 
 // Account slot interface
@@ -35,81 +37,26 @@ export interface UserAccount {
 }
 
 /**
- * Enhanced device fingerprint with multiple fallbacks
+ * Get device-specific storage key using bulletproof device identification
  */
-const generateDeviceFingerprint = (): string => {
+const getDeviceKey = async (): Promise<string> => {
   try {
-    // Layer 1: Canvas fingerprint
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.textBaseline = 'top';
-      ctx.font = '14px Arial';
-      ctx.fillText('MantraVerse-Device', 2, 2);
-    }
-    const canvasFingerprint = canvas.toDataURL().slice(-12);
-    
-    // Layer 2: Screen and device info
-    const screenInfo = `${screen.width}x${screen.height}x${screen.colorDepth}`;
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const language = navigator.language || 'en';
-    const platform = navigator.platform || 'unknown';
-    const userAgent = navigator.userAgent.slice(0, 20);
-    
-    // Layer 3: Create composite fingerprint
-    const deviceString = `${screenInfo}_${timezone}_${language}_${platform}_${userAgent}_${canvasFingerprint}`;
-    
-    // Layer 4: Generate hash
-    let hash = 0;
-    for (let i = 0; i < deviceString.length; i++) {
-      const char = deviceString.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    
-    return Math.abs(hash).toString(36).slice(0, 10);
-  } catch (error) {
-    console.warn('Device fingerprinting failed, using fallback:', error);
-    return Date.now().toString(36).slice(-10);
-  }
-};
-
-/**
- * Get device-specific storage key with multiple persistence layers
- */
-const getDeviceKey = (): string => {
-  try {
-    // Layer 1: Check localStorage
-    let deviceId = localStorage.getItem('mantra_device_id');
-    
-    // Layer 2: Check sessionStorage as backup
-    if (!deviceId) {
-      deviceId = sessionStorage.getItem('mantra_device_id');
-    }
-    
-    // Layer 3: Check window.name as backup
-    if (!deviceId && window.name && window.name.startsWith('mantra_device_')) {
-      deviceId = window.name.replace('mantra_device_', '');
-    }
-    
-    // Layer 4: Generate new device ID
-    if (!deviceId) {
-      deviceId = `device_${generateDeviceFingerprint()}_${Date.now().toString(36)}`;
-    }
-    
-    // Layer 5: Store in all possible locations
-    localStorage.setItem('mantra_device_id', deviceId);
-    sessionStorage.setItem('mantra_device_id', deviceId);
-    try {
-      window.name = `mantra_device_${deviceId}`;
-    } catch (e) {
-      console.warn('Could not set window.name:', e);
-    }
-    
+    // Use the bulletproof device identification system
+    const deviceId = await getDeviceId();
+    console.log('AccountStorage: Using device ID:', deviceId);
     return deviceId;
   } catch (error) {
-    console.warn('Device key generation failed:', error);
-    return `fallback_${Date.now().toString(36)}`;
+    console.error('AccountStorage: Device ID retrieval failed:', error);
+    // Fallback to cached device ID if available
+    const cachedId = getCurrentDeviceId();
+    if (cachedId) {
+      console.warn('AccountStorage: Using cached device ID:', cachedId);
+      return cachedId;
+    }
+    // Ultimate fallback
+    const fallbackId = `fallback_${Date.now().toString(36)}`;
+    console.warn('AccountStorage: Using fallback ID:', fallbackId);
+    return fallbackId;
   }
 };
 
@@ -127,7 +74,7 @@ const initAccountDB = (): Promise<IDBDatabase> => {
           isResolved = true;
           reject(new Error('IndexedDB initialization timeout'));
         }
-      }, 8000); // Increased timeout for reliability
+      }, 8000);
       
       request.onerror = () => {
         if (!isResolved) {
@@ -187,9 +134,10 @@ export const generateUserId = (name: string, dob: string): string => {
   const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
   const dobFormatted = dob.replace(/-/g, '');
   const timestamp = Date.now();
-  const deviceId = getDeviceKey().slice(-6);
+  const deviceId = getCurrentDeviceId() || 'unknown';
+  const deviceSuffix = deviceId.slice(-6);
   
-  return `${cleanName}_${dobFormatted}_${timestamp}_${deviceId}`;
+  return `${cleanName}_${dobFormatted}_${timestamp}_${deviceSuffix}`;
 };
 
 /**
@@ -229,10 +177,10 @@ export const generateSalt = (): string => {
 };
 
 /**
- * Enhanced account slots retrieval with 8-layer persistence strategy
+ * Enhanced account slots retrieval with bulletproof device identification
  */
 export const getAccountSlots = async (): Promise<AccountSlot[]> => {
-  const deviceId = getDeviceKey();
+  const deviceId = await getDeviceKey();
   console.log('Getting account slots for device:', deviceId);
   
   const slots: AccountSlot[] = [];
@@ -305,19 +253,21 @@ export const getAccountSlots = async (): Promise<AccountSlot[]> => {
       }
     }
     
-    // Layer 3: Check for legacy storage patterns
+    // Layer 3: Check for legacy storage patterns (for migration)
     for (let i = 1; i <= STORAGE_CONFIG.MAX_ACCOUNTS; i++) {
       if (!slots[i - 1].userId) {
         try {
-          // Check alternative key patterns
-          const altKeys = [
+          // Check alternative key patterns for migration
+          const legacyKeys = [
             `account_slot_${i}_${deviceId}`,
             `mantra_slot_${i}`,
-            `slot_${i}_data`
+            `slot_${i}_data`,
+            // Also check with previous device identification methods
+            `device_*_slot_${i}` // Will need manual checking
           ];
           
-          for (const altKey of altKeys) {
-            const data = localStorage.getItem(altKey);
+          for (const legacyKey of legacyKeys) {
+            const data = localStorage.getItem(legacyKey);
             if (data) {
               try {
                 const parsed = JSON.parse(data);
@@ -330,11 +280,18 @@ export const getAccountSlots = async (): Promise<AccountSlot[]> => {
                     createdAt: parsed.createdAt,
                     isActive: false
                   };
-                  console.log(`Found account in legacy storage slot ${i}:`, parsed.name);
+                  console.log(`Migrated account from legacy storage slot ${i}:`, parsed.name);
+                  
+                  // Store in new format
+                  const newKey = `${deviceId}_slot_${i}`;
+                  localStorage.setItem(newKey, JSON.stringify(slots[i - 1]));
+                  
+                  // Remove legacy key
+                  localStorage.removeItem(legacyKey);
                   break;
                 }
               } catch (e) {
-                console.warn(`Error parsing legacy data for ${altKey}:`, e);
+                console.warn(`Error parsing legacy data for ${legacyKey}:`, e);
               }
             }
           }
@@ -357,7 +314,7 @@ export const getAccountSlots = async (): Promise<AccountSlot[]> => {
  * Save account to available slot
  */
 export const saveAccountToSlot = async (account: UserAccount): Promise<number> => {
-  const deviceId = getDeviceKey();
+  const deviceId = await getDeviceKey();
   console.log('Saving account to device:', deviceId);
   
   const slots = await getAccountSlots();
@@ -432,7 +389,7 @@ export const saveAccountToSlot = async (account: UserAccount): Promise<number> =
  * Get account by slot ID
  */
 export const getAccountBySlot = async (slotId: number): Promise<UserAccount | null> => {
-  const deviceId = getDeviceKey();
+  const deviceId = await getDeviceKey();
   
   try {
     // Try to get from IndexedDB first
@@ -482,7 +439,7 @@ export const getAccountBySlot = async (slotId: number): Promise<UserAccount | nu
  * Set active account slot
  */
 export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
-  const deviceId = getDeviceKey();
+  const deviceId = await getDeviceKey();
   console.log('Setting active account slot:', slotId, 'for device:', deviceId);
   
   // Clear all active flags first
@@ -545,26 +502,21 @@ export const setActiveAccountSlot = async (slotId: number): Promise<void> => {
     // Update localStorage backup
     localStorage.setItem(`${deviceId}_slot_${slotId}`, JSON.stringify(activeSlot));
     
-    // Set session and window data for cross-tab sync
+    // Set session storage for quick access
     sessionStorage.setItem(`${deviceId}_activeAccountSlot`, slotId.toString());
-    try {
-      window.name = `activeSlot_${slotId}`;
-    } catch (error) {
-      console.warn('Window.name setting failed:', error);
-    }
     
     console.log('Active account slot set successfully:', slotId);
   }
 };
 
 /**
- * Enhanced active account detection
+ * Enhanced active account detection with bulletproof device identification
  */
 export const getActiveAccount = async (): Promise<UserAccount | null> => {
-  const deviceId = getDeviceKey();
+  const deviceId = await getDeviceKey();
   
   try {
-    // Layer 1: Check session storage
+    // Layer 1: Check session storage for quick access
     const sessionSlot = sessionStorage.getItem(`${deviceId}_activeAccountSlot`);
     if (sessionSlot) {
       const account = await getAccountBySlot(parseInt(sessionSlot));
@@ -574,35 +526,20 @@ export const getActiveAccount = async (): Promise<UserAccount | null> => {
       }
     }
     
-    // Layer 2: Check window.name
-    try {
-      if (window.name && window.name.includes('activeSlot')) {
-        const match = window.name.match(/activeSlot_(\d+)/);
-        if (match) {
-          const slotId = parseInt(match[1]);
-          const account = await getAccountBySlot(slotId);
-          if (account) {
-            console.log('Found active account from window.name:', account.name);
-            return account;
-          }
-        }
-      }
-    } catch (error) {
-      console.warn('Window.name check failed:', error);
-    }
-    
-    // Layer 3: Check localStorage for active flag
+    // Layer 2: Check localStorage for active flag
     const slots = await getAccountSlots();
     const activeSlot = slots.find(slot => slot.isActive && slot.userId);
     if (activeSlot) {
       const account = await getAccountBySlot(activeSlot.slotId);
       if (account) {
         console.log('Found active account from storage:', account.name);
+        // Update session storage for next time
+        sessionStorage.setItem(`${deviceId}_activeAccountSlot`, activeSlot.slotId.toString());
         return account;
       }
     }
     
-    // Layer 4: Check for any recent login
+    // Layer 3: Check for any recent login
     const recentSlots = slots
       .filter(slot => slot.userId && slot.lastLogin)
       .sort((a, b) => new Date(b.lastLogin!).getTime() - new Date(a.lastLogin!).getTime());
@@ -611,6 +548,8 @@ export const getActiveAccount = async (): Promise<UserAccount | null> => {
       const account = await getAccountBySlot(recentSlots[0].slotId);
       if (account) {
         console.log('Found most recent account:', account.name);
+        // Set as active
+        await setActiveAccountSlot(recentSlots[0].slotId);
         return account;
       }
     }
@@ -628,7 +567,7 @@ export const getActiveAccount = async (): Promise<UserAccount | null> => {
  * Replace account in slot
  */
 export const replaceAccountInSlot = async (account: UserAccount, targetSlotId: number): Promise<void> => {
-  const deviceId = getDeviceKey();
+  const deviceId = await getDeviceKey();
   account.slotId = targetSlotId;
   
   try {
@@ -688,7 +627,7 @@ export const replaceAccountInSlot = async (account: UserAccount, targetSlotId: n
  * Clear account slot
  */
 export const clearAccountSlot = async (slotId: number): Promise<void> => {
-  const deviceId = getDeviceKey();
+  const deviceId = await getDeviceKey();
   
   try {
     const db = await initAccountDB();
@@ -713,11 +652,6 @@ export const clearAccountSlot = async (slotId: number): Promise<void> => {
   const activeSlot = sessionStorage.getItem(`${deviceId}_activeAccountSlot`);
   if (activeSlot === slotId.toString()) {
     sessionStorage.removeItem(`${deviceId}_activeAccountSlot`);
-    try {
-      window.name = '';
-    } catch (error) {
-      console.warn('Window.name clear failed:', error);
-    }
   }
 };
 
@@ -725,20 +659,11 @@ export const clearAccountSlot = async (slotId: number): Promise<void> => {
  * Clear active account session (for logout)
  */
 export const clearActiveAccount = async (): Promise<void> => {
-  const deviceId = getDeviceKey();
+  const deviceId = await getDeviceKey();
   
   try {
-    // Clear all session indicators
+    // Clear session storage
     sessionStorage.removeItem(`${deviceId}_activeAccountSlot`);
-    
-    // Clear window.name if it contains active slot info
-    try {
-      if (window.name && window.name.includes('activeSlot')) {
-        window.name = window.name.replace(/activeSlot_\d+/, '');
-      }
-    } catch (error) {
-      console.warn('Could not clear window.name:', error);
-    }
     
     // Update all slots to inactive in storage
     const slots = await getAccountSlots();

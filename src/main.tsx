@@ -5,46 +5,66 @@ import './index.css'
 
 console.log("Main.tsx: Starting application...");
 
-// Initialize device identification on app start
-const initializeDeviceIdentity = () => {
-  if (!localStorage.getItem('device_id')) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.textBaseline = 'top';
-      ctx.font = '14px Arial';
-      ctx.fillText('Device fingerprint', 2, 2);
+// Initialize bulletproof device identification system
+const initializeDeviceIdentification = async () => {
+  try {
+    console.log("Main.tsx: Initializing bulletproof device identification...");
+    
+    // Import and initialize the device identification system
+    const { DeviceIdentificationSystem } = await import('./utils/deviceIdentification');
+    const deviceSystem = DeviceIdentificationSystem.getInstance();
+    
+    // Initialize the system
+    const deviceId = await deviceSystem.initialize();
+    console.log("Main.tsx: Device identification initialized successfully:", deviceId);
+    
+    // Register service worker for Layer 3 persistence
+    if ('serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.register('/device-sw.js');
+        console.log('Main.tsx: Device service worker registered:', registration);
+        
+        // Send device ID to service worker
+        if (registration.active) {
+          const channel = new MessageChannel();
+          registration.active.postMessage({
+            type: 'STORE_DEVICE_ID',
+            deviceId: deviceId
+          }, [channel.port2]);
+        }
+      } catch (swError) {
+        console.warn('Main.tsx: Service worker registration failed:', swError);
+      }
     }
-    const canvasFingerprint = canvas.toDataURL().slice(-10);
     
-    const screenInfo = `${screen.width}x${screen.height}x${screen.colorDepth}`;
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const language = navigator.language || 'en';
-    const platform = navigator.platform || 'unknown';
+    // Validate device integrity
+    const isValid = await deviceSystem.validateIntegrity();
+    console.log("Main.tsx: Device integrity validation:", isValid);
     
-    const deviceString = `${screenInfo}_${timezone}_${language}_${platform}_${canvasFingerprint}`;
+    // Log storage health
+    const healthStatus = deviceSystem.getStorageHealth();
+    console.log("Main.tsx: Storage health status:", healthStatus);
     
-    let hash = 0;
-    for (let i = 0; i < deviceString.length; i++) {
-      const char = deviceString.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    
-    const deviceId = `device_${Math.abs(hash).toString(36).slice(0, 8)}_${Date.now().toString(36)}`;
-    localStorage.setItem('device_id', deviceId);
-    console.log("Main.tsx: Device identity initialized:", deviceId);
-  } else {
-    console.log("Main.tsx: Device identity found:", localStorage.getItem('device_id'));
+  } catch (error) {
+    console.error("Main.tsx: Device identification initialization failed:", error);
+    // Continue with app loading even if device identification fails
   }
 };
 
-initializeDeviceIdentity();
-
-const rootElement = document.getElementById("root");
-if (!rootElement) {
-  console.error("Main.tsx: Root element not found!");
-} else {
-  console.log("Main.tsx: Root element found, rendering App...");
-  createRoot(rootElement).render(<App />);
-}
+// Initialize device identification before rendering app
+initializeDeviceIdentification().then(() => {
+  const rootElement = document.getElementById("root");
+  if (!rootElement) {
+    console.error("Main.tsx: Root element not found!");
+  } else {
+    console.log("Main.tsx: Root element found, rendering App...");
+    createRoot(rootElement).render(<App />);
+  }
+}).catch((error) => {
+  console.error("Main.tsx: Critical initialization error:", error);
+  // Fallback: render app anyway
+  const rootElement = document.getElementById("root");
+  if (rootElement) {
+    createRoot(rootElement).render(<App />);
+  }
+});
