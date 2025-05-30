@@ -1,50 +1,33 @@
 
 import React from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useEffect } from "react";
-import HomePage from "./pages/HomePage";
-import AudioCountPage from "./pages/AudioCountPage";
-import ManualCountPage from "./pages/ManualCountPage";
-import SpiritualIdPage from "./pages/SpiritualIdPage";
-import IdentityGuidePage from "./pages/IdentityGuidePage";
-import ActiveDaysPage from "./pages/ActiveDaysPage";
-import NotFound from "./pages/NotFound";
-import { initializeDatabase } from "./utils/indexedDBUtils";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "@/components/ui/sonner";
+import HomePage from "@/pages/HomePage";
+import ManualCounterPage from "@/pages/ManualCounterPage";
+import AudioCounterPage from "@/pages/AudioCounterPage";
+import ActiveDaysPage from "@/pages/ActiveDaysPage";
+import SpiritualIdPage from "@/pages/SpiritualIdPage";
+import IdentityGuidePage from "@/pages/IdentityGuidePage";
+import WelcomeScreen from "@/components/WelcomeScreen";
 
-const queryClient = new QueryClient();
-
-const App: React.FC = () => {
-  // Initialize IndexedDB when the app starts
-  useEffect(() => {
-    const init = async () => {
-      await initializeDatabase();
-    };
-    init();
-  }, []);
-
+function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/audio" element={<AudioCountPage />} />
-            <Route path="/manual" element={<ManualCountPage />} />
-            <Route path="/spiritual-id" element={<SpiritualIdPage />} />
-            <Route path="/identity-guide" element={<IdentityGuidePage />} />
-            <Route path="/active-days" element={<ActiveDaysPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <Router>
+      <div className="App">
+        <Routes>
+          <Route path="/welcome" element={<WelcomeScreen />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/manual" element={<ManualCounterPage />} />
+          <Route path="/audio" element={<AudioCounterPage />} />
+          <Route path="/active-days" element={<ActiveDaysPage />} />
+          <Route path="/spiritual-id" element={<SpiritualIdPage />} />
+          <Route path="/identity-guide" element={<IdentityGuidePage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <Toaster position="top-center" />
+      </div>
+    </Router>
   );
-};
+}
 
 export default App;

@@ -1,24 +1,33 @@
 
 import React, { useState, useEffect } from "react";
-import { getUserData } from "@/utils/spiritualIdUtils";
-import { Button } from "@/components/ui/button";
+import { getActiveAccount, type UserAccount } from "@/utils/accountStorage";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import ProfileDropdown from "./ProfileDropdown";
 import ModernCard from "./ModernCard";
 
 const ProfileHeader: React.FC = () => {
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<UserAccount | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   
   useEffect(() => {
-    // Get user data from localStorage for immediate UI update
-    const localUserData = getUserData();
-    if (localUserData) {
-      setUserData(localUserData);
-    }
+    // Get user data from account storage
+    const loadUserData = async () => {
+      try {
+        const activeAccount = await getActiveAccount();
+        if (activeAccount) {
+          setUserData(activeAccount);
+        }
+      } catch (error) {
+        console.error("Failed to load user data:", error);
+      }
+    };
+    
+    loadUserData();
   }, []);
 
   if (!userData) return null;
+
+  const displayIcon = userData.userData?.symbolImage || "🕉️";
 
   return (
     <div className="relative">
@@ -28,7 +37,7 @@ const ProfileHeader: React.FC = () => {
       >
         <Avatar className="h-10 w-10 lg:h-12 lg:w-12 border-2 border-amber-300/50 dark:border-amber-600/50">
           <AvatarFallback className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400 text-lg lg:text-xl">
-            {userData.symbolImage || "🕉️"}
+            {displayIcon}
           </AvatarFallback>
         </Avatar>
         <span className="text-amber-600 dark:text-amber-400 text-sm lg:text-base font-medium hidden sm:inline-block">
@@ -38,6 +47,7 @@ const ProfileHeader: React.FC = () => {
 
       {dropdownOpen && (
         <ProfileDropdown 
+          account={userData}
           onClose={() => setDropdownOpen(false)} 
         />
       )}

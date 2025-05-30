@@ -21,6 +21,8 @@ import {
   type UserAccount 
 } from "@/utils/accountStorage";
 import { useNavigate } from "react-router-dom";
+import SpiritualIconSelector from "./SpiritualIconSelector";
+import { spiritualIcons } from "@/utils/spiritualIdUtils";
 
 interface AccountManagerProps {
   onAccountSelected: (account: UserAccount) => void;
@@ -40,10 +42,12 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
   const [dob, setDob] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [selectedIcon, setSelectedIcon] = useState("om");
   const [loginPassword, setLoginPassword] = useState("");
-  const [step, setStep] = useState(1); // 1: Name/DOB, 2: Password
+  const [step, setStep] = useState(1); // 1: Name/DOB, 2: Icon, 3: Password
   const [importing, setImporting] = useState(false);
   const [importData, setImportData] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     loadAccountSlots();
@@ -73,6 +77,17 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       return;
     }
 
+    if (step === 2) {
+      if (!selectedIcon) {
+        toast("Please select an icon", {
+          description: "Choose a spiritual symbol for your profile"
+        });
+        return;
+      }
+      setStep(3);
+      return;
+    }
+
     if (!password || password !== confirmPassword) {
       toast("Password Error", {
         description: "Passwords don't match or are empty"
@@ -87,12 +102,15 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       return;
     }
 
+    setIsCreating(true);
+
     try {
       console.log("AccountManager: Creating account for", name.trim());
       
       const userId = generateUserId(name.trim(), dob);
       const salt = generateSalt();
       const hashedPassword = await hashPassword(password, salt);
+      const selectedIconData = spiritualIcons.find(icon => icon.id === selectedIcon);
 
       const newAccount: UserAccount = {
         id: userId,
@@ -106,7 +124,9 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
         userData: {
           lifetimeCount: 0,
           todayCount: 0,
-          lastCountDate: new Date().toDateString()
+          lastCountDate: new Date().toDateString(),
+          selectedIcon: selectedIcon,
+          symbolImage: selectedIconData?.symbol || "🕉️"
         }
       };
 
@@ -150,6 +170,8 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
           description: "Could not create account. Please try again."
         });
       }
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -311,7 +333,39 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
     setDob("");
     setPassword("");
     setConfirmPassword("");
+    setSelectedIcon("om");
     setStep(1);
+    setSelectedSlot(null);
+  };
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        
+        if (data.id && data.name) {
+          setImportData(content);
+          toast("File Loaded", {
+            description: "Account data extracted from file. You can now import it.",
+            icon: <Upload className="h-4 w-4 text-blue-500" />
+          });
+        } else {
+          toast("Invalid File", {
+            description: "This file doesn't contain valid account data"
+          });
+        }
+      } catch (error) {
+        toast("File Error", {
+          description: "Could not read the file. Please check the format."
+        });
+      }
+    };
+    reader.readAsText(file);
   };
 
   const formatLastLogin = (lastLogin: string | null) => {
@@ -464,9 +518,9 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Create Account {selectedSlot} - Step {step}/2</DialogTitle>
+            <DialogTitle>Create Account {selectedSlot} - Step {step}/3</DialogTitle>
             <DialogDescription>
-              {step === 1 ? "Enter your personal information" : "Set up your password"}
+              {step === 1 ? "Enter your personal information" : step === 2 ? "Choose your spiritual symbol" : "Set up your password"}
             </DialogDescription>
           </DialogHeader>
           
@@ -492,6 +546,11 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
                   />
                 </div>
               </>
+            ) : step === 2 ? (
+              <SpiritualIconSelector
+                selectedIcon={selectedIcon}
+                onSelectIcon={setSelectedIcon}
+              />
             ) : (
               <>
                 <div className="space-y-2">
@@ -518,9 +577,9 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
             )}
             
             <div className="flex justify-between pt-4">
-              {step === 2 && (
+              {step > 1 && (
                 <Button
-                  onClick={() => setStep(1)}
+                  onClick={() => setStep(step - 1)}
                   variant="outline"
                 >
                   Back
@@ -529,8 +588,9 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
               <Button
                 onClick={handleCreateAccount}
                 className="bg-amber-500 hover:bg-amber-600 text-white ml-auto"
+                disabled={isCreating}
               >
-                {step === 1 ? "Next" : "Create Account"}
+                {isCreating ? "Creating..." : (step === 3 ? "Create Account" : "Next")}
               </Button>
             </div>
           </div>
@@ -590,6 +650,18 @@ const AccountManager: React.FC<AccountManagerProps> = ({ onAccountSelected }) =>
                 value={importData}
                 onChange={(e) => setImportData(e.target.value)}
               />
+            </div>
+            
+            <div className="text-center">
+              <Label className="text-sm text-gray-600 dark:text-gray-400">Or upload a backup file:</Label>
+              <div className="mt-2">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileImport}
+                  className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+              </div>
             </div>
             
             <Button

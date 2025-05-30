@@ -4,10 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Mic, Hand, Infinity, Clock, Sparkles, Calendar } from "lucide-react";
 import { getActiveAccount, type UserAccount } from "@/utils/accountStorage";
 import ThemeToggle from "@/components/ThemeToggle";
-import WelcomeScreen from "@/components/WelcomeScreen";
 import ProfileHeader from "@/components/ProfileHeader";
 import WelcomePopup from "@/components/WelcomePopup";
-import ActiveDaysButton from "@/components/ActiveDaysButton";
 import { getLifetimeCount, getTodayCount } from "@/utils/indexedDBUtils";
 import { toast } from "@/components/ui/sonner";
 import ModernCard from "@/components/ModernCard";
@@ -42,7 +40,10 @@ const HomePage: React.FC = () => {
           
           console.log("HomePage: Data loaded - Lifetime:", lifetime, "Today:", today);
         } else {
-          console.log("HomePage: No active account, will show welcome screen");
+          console.log("HomePage: No active account, redirecting to welcome");
+          // If no account and not already on welcome screen, navigate
+          navigate('/welcome');
+          return;
         }
       } catch (error) {
         console.error("HomePage: Error loading data:", error);
@@ -55,7 +56,7 @@ const HomePage: React.FC = () => {
     };
     
     loadData();
-  }, []);
+  }, [navigate]);
 
   // Show loading spinner while checking for accounts
   if (isLoading) {
@@ -72,34 +73,9 @@ const HomePage: React.FC = () => {
     );
   }
 
-  // If no active account, show welcome screen for account management
+  // If no active account, this will be handled by the redirect above
   if (!activeAccount) {
-    return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800">
-        <header className="py-6 lg:py-8 text-center relative">
-          <div className="absolute right-4 lg:right-8 top-4 lg:top-6">
-            <ThemeToggle />
-          </div>
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
-              <Sparkles className="w-6 h-6 lg:w-7 lg:h-7 text-white" />
-            </div>
-            <h1 className="text-3xl lg:text-4xl xl:text-5xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
-              Mantra Verse
-            </h1>
-          </div>
-          <p className="text-gray-600 dark:text-gray-300 mt-2 text-base lg:text-lg">Count your spiritual practice with ease</p>
-        </header>
-        
-        <main className="flex-1 flex flex-col items-center justify-center px-4 lg:px-8 pb-12">
-          <WelcomeScreen />
-        </main>
-        
-        <footer className="py-6 text-center text-gray-500 dark:text-gray-400 text-sm lg:text-base">
-          <p>Created with 🧡 for spiritual practice</p>
-        </footer>
-      </div>
-    );
+    return null;
   }
 
   // User is logged in, show the main app

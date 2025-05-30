@@ -10,6 +10,7 @@ import { getActiveAccount, type UserAccount } from "@/utils/accountStorage";
 const WelcomeScreen: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [hasActiveAccount, setHasActiveAccount] = useState(false);
   
   useEffect(() => {
     checkForActiveAccount();
@@ -20,15 +21,16 @@ const WelcomeScreen: React.FC = () => {
       console.log("WelcomeScreen: Checking for active account...");
       const activeAccount = await getActiveAccount();
       if (activeAccount) {
-        console.log("WelcomeScreen: Found active account, redirecting to home:", activeAccount.name);
-        // User has an active account, redirect to home
-        navigate('/');
-        return;
+        console.log("WelcomeScreen: Found active account:", activeAccount.name);
+        setHasActiveAccount(true);
+        // Don't auto-redirect here to prevent loops
       } else {
-        console.log("WelcomeScreen: No active account found, showing account manager");
+        console.log("WelcomeScreen: No active account found");
+        setHasActiveAccount(false);
       }
     } catch (error) {
       console.error("WelcomeScreen: Failed to check active account:", error);
+      setHasActiveAccount(false);
     } finally {
       setLoading(false);
     }
@@ -41,8 +43,10 @@ const WelcomeScreen: React.FC = () => {
       description: `Logged in as ${account.name}`,
     });
     
-    // Redirect to home page immediately
-    navigate('/');
+    // Small delay to ensure state is updated before navigation
+    setTimeout(() => {
+      navigate('/');
+    }, 100);
   };
 
   const handleContinueAsGuest = () => {
@@ -59,6 +63,58 @@ const WelcomeScreen: React.FC = () => {
             <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
           </div>
         </ModernCard>
+      </div>
+    );
+  }
+
+  // If user has active account, show login button
+  if (hasActiveAccount) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-zinc-900 dark:via-black dark:to-zinc-800 flex items-center justify-center p-4">
+        <div className="w-full max-w-6xl mx-auto">
+          <div className="text-center mb-8">
+            <div className="text-6xl lg:text-7xl mb-4">🕉️</div>
+            <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent mb-4">
+              Welcome Back to Mantra Verse
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300 text-lg lg:text-xl mb-8">
+              Continue your spiritual journey
+            </p>
+          </div>
+          
+          <div className="text-center mb-8">
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8 py-3 text-lg"
+            >
+              Continue to App
+            </Button>
+          </div>
+          
+          <AccountManager onAccountSelected={handleAccountSelected} />
+          
+          <div className="text-center mt-8">
+            <Button
+              variant="ghost"
+              onClick={handleContinueAsGuest}
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-zinc-800/50"
+            >
+              Continue as Guest (Limited Features)
+            </Button>
+          </div>
+          
+          <div className="mt-8 pt-6 border-t border-gray-200/50 dark:border-zinc-700/50">
+            <p className="text-xs lg:text-sm text-center text-gray-500 dark:text-gray-400">
+              Your accounts are stored securely on your device using advanced encryption. <br/>
+              <button 
+                className="text-amber-500 dark:text-amber-400 hover:underline"
+                onClick={() => navigate('/identity-guide')}
+              >
+                Learn more about our security features
+              </button>
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
