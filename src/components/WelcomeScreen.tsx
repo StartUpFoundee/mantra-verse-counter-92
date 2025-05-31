@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -96,7 +95,7 @@ const WelcomeScreen: React.FC = () => {
         }
       } finally {
         if (isMounted) {
-          setIsLoading(false);
+          setLoading(false);
         }
       }
     };
